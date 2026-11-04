@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: brandtrace-api
+    env: python
+    region: singapore
+    plan: free
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        sync: false          # set via Render dashboard / secret
+      - key: GROQ_API_KEY
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ENVIRONMENT
+        value: production
+      - key: ALLOW_ROLE_SWITCHER
+        value: "false"       # disables JWT dev role-picker in prod
+      - key: CORS_ORIGINS
+        sync: false          # set to Vercel frontend URL after first deploy
+      - key: PORT
+        value: "8000"
+

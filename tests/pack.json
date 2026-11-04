@@ -1,0 +1,302 @@
+[
+  {
+    "id": "DEV-01",
+    "split": "dev",
+    "text": "Get the flagship X1 Pro for just Rs 4,999 today.",
+    "claim_type": "price",
+    "subject": "X1 Pro price",
+    "raw_value": "Rs 4,999",
+    "expected_status": "Verified",
+    "notes": "Exact match to active fact F001 v1"
+  },
+  {
+    "id": "DEV-02",
+    "split": "dev",
+    "text": "Special launch price of Rs 3,999 on X1 Pro.",
+    "claim_type": "price",
+    "subject": "X1 Pro price",
+    "raw_value": "Rs 3,999",
+    "expected_status": "Contradicted",
+    "notes": "Planted price contradiction (3999 vs 4999)"
+  },
+  {
+    "id": "DEV-03",
+    "split": "dev",
+    "text": "Aura X1 Pro guarantees 100% satisfaction or money back.",
+    "claim_type": "claim",
+    "subject": "satisfaction guarantee",
+    "raw_value": "100% satisfaction",
+    "expected_status": "Unverified",
+    "notes": "No approved brand fact exists for guarantee"
+  },
+  {
+    "id": "DEV-04",
+    "split": "dev",
+    "text": "World's fastest charging wireless audio earbuds on the market.",
+    "claim_type": "claim",
+    "subject": "charging superlative",
+    "raw_value": "fastest charging",
+    "expected_status": "Unverified",
+    "notes": "Unbacked superlative claim"
+  },
+  {
+    "id": "DEV-05",
+    "split": "dev",
+    "text": "Introductory retail offer of Rs 4999/- across all stores.",
+    "claim_type": "price",
+    "subject": "X1 Pro price",
+    "raw_value": "Rs 4999/-",
+    "expected_status": "Verified",
+    "notes": "Trailing slash-hyphen currency notation"
+  },
+  {
+    "id": "DEV-06",
+    "split": "dev",
+    "text": "Grab the X1 Pro for around 4.9k online.",
+    "claim_type": "price",
+    "subject": "X1 Pro price",
+    "raw_value": "4.9k",
+    "expected_status": "Unverified",
+    "notes": "Approximate form flagged approximate=True; never auto-matched"
+  },
+  {
+    "id": "DEV-07",
+    "split": "dev",
+    "text": "Festive season special: 20% off on all accessories.",
+    "claim_type": "percentage",
+    "subject": "Festive Launch offer",
+    "raw_value": "20% off",
+    "expected_status": "Verified",
+    "notes": "Matches campaign approved offer"
+  },
+  {
+    "id": "DEV-08",
+    "split": "dev",
+    "text": "Exclusive flash discount of 35% off on X1 Pro.",
+    "claim_type": "percentage",
+    "subject": "Festive Launch offer",
+    "raw_value": "35% off",
+    "expected_status": "Contradicted",
+    "notes": "Planted offer mismatch vs campaign 20% off"
+  },
+  {
+    "id": "DEV-09",
+    "split": "dev",
+    "text": "Old batch stock fulfilled at superseded pricing of Rs 4,999.",
+    "claim_type": "price",
+    "subject": "X1 Pro price",
+    "raw_value": "Rs 4,999",
+    "expected_status": "Stale",
+    "notes": "Pinned to superseded fact version when evaluating against v2"
+  },
+  {
+    "id": "DEV-10",
+    "split": "dev",
+    "text": "X1 Pro is priced at 4,999 rupees with GST included.",
+    "claim_type": "price",
+    "subject": "X1 Pro price",
+    "raw_value": "4,999 rupees",
+    "expected_status": "Verified",
+    "notes": "Trailing rupees word syntax"
+  },
+  {
+    "id": "ADV-01",
+    "split": "held_out",
+    "text": "Available now for Rs 4999/- through official partners.",
+    "claim_type": "price",
+    "subject": "X1 Pro price",
+    "raw_value": "Rs 4999/-",
+    "expected_status": "Verified",
+    "notes": "Adversarial case 1: slash-hyphen format"
+  },
+  {
+    "id": "ADV-02",
+    "split": "held_out",
+    "text": "Purchase retail units for 4,999 rupees directly.",
+    "claim_type": "price",
+    "subject": "X1 Pro price",
+    "raw_value": "4,999 rupees",
+    "expected_status": "Verified",
+    "notes": "Adversarial case 2: trailing rupees format"
+  },
+  {
+    "id": "ADV-03",
+    "split": "held_out",
+    "text": "Available for around 4.9k across online marketplaces.",
+    "claim_type": "price",
+    "subject": "X1 Pro price",
+    "raw_value": "4.9k",
+    "expected_status": "Unverified",
+    "notes": "Adversarial case 3: 4.9k approximate -> MUST go to human queue, never auto-match"
+  },
+  {
+    "id": "ADV-04",
+    "split": "held_out",
+    "text": "Hurry! Introductory offer ends this Friday.",
+    "claim_type": "date",
+    "subject": "Festive Launch offer",
+    "raw_value": "ends this Friday",
+    "expected_status": "Contradicted",
+    "notes": "Adversarial case 4: relative date resolves to Friday 23 Oct vs approved offer end date 31 Dec"
+  },
+  {
+    "id": "ADV-05",
+    "split": "held_out",
+    "text": "Enjoy 20% off exclusively on orders above Rs 10,000.",
+    "claim_type": "percentage",
+    "subject": "Festive Launch offer",
+    "raw_value": "20% off above Rs 10,000",
+    "expected_status": "Contradicted",
+    "notes": "Adversarial case 5: conditional offer with mismatched minimum spend condition"
+  },
+  {
+    "id": "ADV-06",
+    "split": "held_out",
+    "text": "Only Rs 4,999 with express same-day courier dispatch.",
+    "claim_type": "price",
+    "subject": "",
+    "raw_value": "Rs 4,999",
+    "expected_status": "Unverified",
+    "notes": "Adversarial case 6: claim with no subject -> goes to human queue"
+  },
+  {
+    "id": "ADV-07",
+    "split": "held_out",
+    "text": "Introductory pricing guaranteed under expired Q3 term of Rs 4,999.",
+    "claim_type": "price",
+    "subject": "X1 Pro price",
+    "raw_value": "Rs 4,999",
+    "expected_status": "Stale",
+    "notes": "Adversarial case 7: expired fact version with closed valid_to"
+  },
+  {
+    "id": "ADV-08",
+    "split": "held_out",
+    "text": "Archived webinar record: Fulfilled orders at original Rs 4,999.",
+    "claim_type": "price",
+    "subject": "X1 Pro price",
+    "raw_value": "Rs 4,999",
+    "expected_status": "Verified",
+    "notes": "Adversarial case 8: content archived before valid_from -> must NOT be marked stale"
+  },
+  {
+    "id": "HELD-01",
+    "split": "held_out",
+    "text": "The verified price of Aura X1 Pro is Rs. 4,999.",
+    "claim_type": "price",
+    "subject": "X1 Pro price",
+    "raw_value": "Rs. 4,999",
+    "expected_status": "Verified",
+    "notes": "Dotted prefix currency form"
+  },
+  {
+    "id": "HELD-02",
+    "split": "held_out",
+    "text": "Get Aura X1 Pro at an unauthorized price of Rs 6,999.",
+    "claim_type": "price",
+    "subject": "X1 Pro price",
+    "raw_value": "Rs 6,999",
+    "expected_status": "Contradicted",
+    "notes": "Planted price markup contradiction"
+  },
+  {
+    "id": "HELD-03",
+    "split": "held_out",
+    "text": "Enjoy uncompromised lifetime free replacements on earbuds.",
+    "claim_type": "claim",
+    "subject": "warranty policy",
+    "raw_value": "lifetime free replacements",
+    "expected_status": "Unverified",
+    "notes": "Wild warranty promise with zero source evidence"
+  },
+  {
+    "id": "HELD-04",
+    "split": "held_out",
+    "text": "Official MRP: Rs 4999 in all partner retail locations.",
+    "claim_type": "price",
+    "subject": "X1 Pro price",
+    "raw_value": "Rs 4999",
+    "expected_status": "Verified",
+    "notes": "Clean currency token without commas"
+  },
+  {
+    "id": "HELD-05",
+    "split": "held_out",
+    "text": "Special clearance rate: Rs 2,499 for early shoppers.",
+    "claim_type": "price",
+    "subject": "X1 Pro price",
+    "raw_value": "Rs 2,499",
+    "expected_status": "Contradicted",
+    "notes": "Severe unauthorized price drop contradiction"
+  },
+  {
+    "id": "HELD-06",
+    "split": "held_out",
+    "text": "Estimated cost is approx Rs 5k depending on taxes.",
+    "claim_type": "price",
+    "subject": "X1 Pro price",
+    "raw_value": "approx Rs 5k",
+    "expected_status": "Unverified",
+    "notes": "Approximate 5k notation; goes to human queue"
+  },
+  {
+    "id": "HELD-07",
+    "split": "held_out",
+    "text": "Festive campaign launch discount confirmed at 20 percent.",
+    "claim_type": "percentage",
+    "subject": "Festive Launch offer",
+    "raw_value": "20 percent",
+    "expected_status": "Verified",
+    "notes": "Worded percentage format"
+  },
+  {
+    "id": "HELD-08",
+    "split": "held_out",
+    "text": "Festive launch discount claimed at 50% off.",
+    "claim_type": "percentage",
+    "subject": "Festive Launch offer",
+    "raw_value": "50% off",
+    "expected_status": "Contradicted",
+    "notes": "Deep discount contradiction vs 20% approved"
+  },
+  {
+    "id": "HELD-09",
+    "split": "held_out",
+    "text": "Voted #1 best wireless audio device in India by consumers.",
+    "claim_type": "claim",
+    "subject": "award claim",
+    "raw_value": "#1 best wireless audio",
+    "expected_status": "Unverified",
+    "notes": "Unverified ranking claim"
+  },
+  {
+    "id": "HELD-10",
+    "split": "held_out",
+    "text": "Bulk distributor wholesale tier starting at 5 lakh units.",
+    "claim_type": "price",
+    "subject": "wholesale volume",
+    "raw_value": "5 lakh",
+    "expected_status": "Unverified",
+    "notes": "Indian scale volume; no corporate fact exists"
+  },
+  {
+    "id": "HELD-11",
+    "split": "held_out",
+    "text": "Enterprise licensing contract value estimated at 1.5 crore.",
+    "claim_type": "price",
+    "subject": "enterprise tier",
+    "raw_value": "1.5 crore",
+    "expected_status": "Unverified",
+    "notes": "Indian scale crore notation"
+  },
+  {
+    "id": "HELD-12",
+    "split": "held_out",
+    "text": "Limited VIP edition claimed to retail at Rs 8,999.",
+    "claim_type": "price",
+    "subject": "X1 Pro price",
+    "raw_value": "Rs 8,999",
+    "expected_status": "Contradicted",
+    "notes": "Fictional SKU price contradiction"
+  }
+]

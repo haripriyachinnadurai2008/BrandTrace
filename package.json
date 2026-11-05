@@ -1,0 +1,14 @@
+{
+  "name": "brandtrace-monorepo",
+  "version": "2.0.0",
+  "private": true,
+  "description": "BrandTrace - Git for brand facts (Inkloom AI Brand Governance Challenge)",
+  "scripts": {
+    "dev": "npm --prefix frontend run dev",
+    "build": "npm --prefix frontend run build",
+    "preview": "npm --prefix frontend run preview",
+    "backend": "uvicorn app.main:app --app-dir backend --host 0.0.0.0 --port 8000 --reload",
+    "test:backend": "pytest backend/tests/ -v",
+    "eval": "python tests/eval_pack.py --mode cached"
+  }
+}

@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: brandtrace-db
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-brandtrace}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-brandtrace}
+      POSTGRES_DB: ${POSTGRES_DB:-brandtrace_db}
+      TZ: Asia/Kolkata
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./backend/docker/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-brandtrace} -d ${POSTGRES_DB:-brandtrace_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: brandtrace-backend
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-brandtrace}:${POSTGRES_PASSWORD:-brandtrace}@db:5432/${POSTGRES_DB:-brandtrace_db}
+      TIMEZONE: Asia/Kolkata
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      GROQ_MODEL: ${GROQ_MODEL:-llama-3.3-70b-versatile}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+
+volumes:
+  pgdata:

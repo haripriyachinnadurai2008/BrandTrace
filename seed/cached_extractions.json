@@ -1,0 +1,113 @@
+{
+  "_comment": "Cached LLM extractions for seeded demo content. Keyed by SHA-256 of masked text.",
+  "_note": "These are loaded at startup by llm_client.py and used when GROQ_API_KEY is absent or as cache-first lookup.",
+
+  "exit_test_phase2": {
+    "_description": "Phase 2 exit test: X1 Pro Rs 4999 + guarantee + offer ends 31 Dec",
+    "text": "Meet the X1 Pro, now just Rs 4,999. Guaranteed 100% satisfaction. Offer ends 31 Dec.",
+    "masked": "Meet the X1 Pro, now just [PRICE_1]. Guaranteed 100% satisfaction. Offer ends [DATE_1].",
+    "result": [
+      {
+        "type": "price",
+        "subject": "X1 Pro price",
+        "attribute": "price",
+        "value_ref": "[PRICE_1]",
+        "confidence": 0.97
+      },
+      {
+        "type": "claim",
+        "subject": "satisfaction guarantee",
+        "attribute": "guarantee",
+        "value_ref": null,
+        "confidence": 0.85
+      },
+      {
+        "type": "date",
+        "subject": "offer end date",
+        "attribute": "valid_to",
+        "value_ref": "[DATE_1]",
+        "confidence": 0.90
+      }
+    ]
+  },
+
+  "linkedin_launch": {
+    "_description": "LinkedIn Launch Post — X1 Pro ₹4,999",
+    "result": [
+      {
+        "type": "price",
+        "subject": "X1 Pro price",
+        "attribute": "price",
+        "value_ref": "[PRICE_1]",
+        "confidence": 0.98
+      }
+    ]
+  },
+
+  "email_festive": {
+    "_description": "Email Campaign — ₹4,999 + 20% off",
+    "result": [
+      {
+        "type": "price",
+        "subject": "X1 Pro price",
+        "attribute": "price",
+        "value_ref": "[PRICE_1]",
+        "confidence": 0.99
+      },
+      {
+        "type": "percentage",
+        "subject": "Festive Launch offer",
+        "attribute": "discount",
+        "value_ref": "[PCT_1]",
+        "confidence": 0.97
+      }
+    ]
+  },
+
+  "instagram_poster": {
+    "_description": "Instagram Poster — ₹4,999 + 25% off (cross-channel contradiction with email 20%)",
+    "result": [
+      {
+        "type": "price",
+        "subject": "X1 Pro price",
+        "attribute": "price",
+        "value_ref": "[PRICE_1]",
+        "confidence": 0.95
+      },
+      {
+        "type": "percentage",
+        "subject": "Festive Launch offer",
+        "attribute": "discount",
+        "value_ref": "[PCT_1]",
+        "confidence": 0.96
+      }
+    ]
+  },
+
+  "brochure_pdf": {
+    "_description": "Brochure — ₹4,999 (live)",
+    "result": [
+      {
+        "type": "price",
+        "subject": "X1 Pro price",
+        "attribute": "price",
+        "value_ref": "[PRICE_1]",
+        "confidence": 0.99
+      }
+    ]
+  },
+
+  "webinar_post": {
+    "_description": "Webinar archived — ₹4,999 (archived before 1 Dec)",
+    "result": [
+      {
+        "type": "price",
+        "subject": "X1 Pro price",
+        "attribute": "price",
+        "value_ref": "[PRICE_1]",
+        "confidence": 0.98
+      }
+    ]
+  }
+}
+

@@ -260,6 +260,7 @@ def evaluate_pack(mode: str = "cached") -> dict:
             val_ref = primary_claim.get("value_ref")
             claim_type = primary_claim.get("type", "claim")
             extracted_subj = primary_claim.get("subject", "")
+            extracted_attr = primary_claim.get("attribute", "")
 
             # Normalized entity
             entity = None

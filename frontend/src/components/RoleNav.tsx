@@ -39,6 +39,13 @@ export const RoleNav: React.FC<RoleNavProps> = ({
     loadNotifications();
   }, [currentRole]);
 
+  useEffect(() => {
+    const unsubscribe = api.onAuthError(() => {
+      setLoginOpen(true);
+    });
+    return unsubscribe;
+  }, []);
+
   const loadNotifications = async () => {
     try {
       const data = await api.getNotifications();

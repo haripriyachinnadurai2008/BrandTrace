@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { UserRole } from './types';
+import { isMissingApiUrl, API_BASE_URL } from './api/client';
 import { RoleNav } from './components/RoleNav';
 import { FindingsView } from './pages/FindingsView';
 import { ImpactListView } from './pages/ImpactListView';
@@ -21,6 +22,13 @@ export function App() {
         currentRole={currentRole}
         setCurrentRole={setCurrentRole}
       />
+
+      {/* API URL Configuration Warning Banner */}
+      {isMissingApiUrl && (
+        <div className="bg-red-600 text-white px-4 py-3 text-center text-sm font-semibold shadow-md flex items-center justify-center space-x-2">
+          <span>⚠️ Configuration Error: <code>VITE_API_BASE_URL</code> is not set for production. Please add <code>VITE_API_BASE_URL</code> in the Render static site Environment tab (e.g. <code>https://brandtrace.onrender.com</code>) and trigger a new deploy.</span>
+        </div>
+      )}
 
       {/* Main Content Viewport */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">

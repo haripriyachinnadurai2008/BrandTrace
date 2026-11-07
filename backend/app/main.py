@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
 from app.config import settings, IST
-from app.database import engine, Base, apply_audit_triggers, get_db
+from app.database import engine, Base, apply_audit_triggers, get_db, SessionLocal
 from app.routers import auth, facts, content, audit, campaigns, precedents, sources
 from app.routers import findings as findings_router
 from app.routers import notifications as notifications_router
@@ -98,3 +98,11 @@ def health_check():
         "db_error": db_error,
         "role_switcher_enabled": settings.role_switcher_enabled,
     }
+
+
+@app.post("/seed", tags=["Admin / Demo"])
+def trigger_seed():
+    """Seed or reseed demo dataset (Aura Audio, 4 users, F001 v1, 5 pieces)."""
+    from seed.seed_data import seed_database
+    res = seed_database(target_engine=engine)
+    return {"status": "ok", "message": "Demo data seeded successfully", "details": res}

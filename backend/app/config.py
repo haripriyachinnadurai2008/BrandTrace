@@ -20,7 +20,12 @@ class Settings(BaseSettings):
     # In production set to "false"; role-picker header disabled when false.
     ALLOW_ROLE_SWITCHER: str = "true"
     # Comma-separated allowed origins; wildcard only in dev.
-    CORS_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173"
+    CORS_ORIGINS: str = (
+        "https://brandtrace-frontend.onrender.com,"
+        "http://localhost:5173,"
+        "http://127.0.0.1:5173,"
+        "https://brandtrace.vercel.app"
+    )
 
     class Config:
         env_file = str(env_file)
@@ -29,7 +34,19 @@ class Settings(BaseSettings):
 
     @property
     def cors_origins_list(self) -> List[str]:
-        return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
+        configured = [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
+        defaults = [
+            "https://brandtrace-frontend.onrender.com",
+            "http://localhost:5173",
+            "http://127.0.0.1:5173",
+            "https://brandtrace.vercel.app",
+        ]
+        merged: List[str] = []
+        for o in configured + defaults:
+            clean = o.rstrip("/")
+            if clean and clean not in merged:
+                merged.append(clean)
+        return merged
 
     @property
     def role_switcher_enabled(self) -> bool:

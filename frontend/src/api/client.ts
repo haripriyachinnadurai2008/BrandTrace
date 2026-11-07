@@ -1,11 +1,29 @@
 import { UserRole } from '../types';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const rawEnvUrl = import.meta.env.VITE_API_BASE_URL;
+const isDev = import.meta.env.DEV;
+
+// In dev, default to localhost:8000. In production, require VITE_API_BASE_URL.
+export const API_BASE_URL = (rawEnvUrl ? rawEnvUrl.trim().replace(/\/+$/, '') : (isDev ? 'http://localhost:8000' : ''));
+export const isMissingApiUrl = !API_BASE_URL;
 
 class ApiClient {
   private currentRole: UserRole = 'Admin';
   private currentUserId: string = 'usr_admin_elena';
   private token: string | null = typeof window !== 'undefined' ? localStorage.getItem('brandtrace_token') : null;
+  private onAuthErrorListeners: (() => void)[] = [];
+
+  onAuthError(callback: () => void) {
+    this.onAuthErrorListeners.push(callback);
+    return () => {
+      this.onAuthErrorListeners = this.onAuthErrorListeners.filter(cb => cb !== callback);
+    };
+  }
+
+  notifyAuthError() {
+    this.logout();
+    this.onAuthErrorListeners.forEach(cb => cb());
+  }
 
   setRole(role: UserRole) {
     this.currentRole = role;
@@ -55,6 +73,12 @@ class ApiClient {
   }
 
   async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+    if (isMissingApiUrl) {
+      const msg = `API Configuration Error: VITE_API_BASE_URL is not configured for production. Please set VITE_API_BASE_URL in your Render static site settings and redeploy.`;
+      console.error(msg);
+      throw new Error(msg);
+    }
+
     const url = `${API_BASE_URL}${endpoint}`;
     const headers = new Headers(options.headers || {});
     headers.set('Content-Type', 'application/json');
@@ -68,23 +92,44 @@ class ApiClient {
     headers.set('X-User-Role', this.currentRole);
     headers.set('X-User-Id', this.currentUserId);
 
+    let response: Response;
     try {
-      const response = await fetch(url, { ...options, headers });
-      if (!response.ok) {
-        let errDetail = 'Request failed';
+      response = await fetch(url, { ...options, headers });
+    } catch (networkErr: any) {
+      const reachMsg = `Cannot reach backend at ${url}. Check network connection, CORS settings, or server status.`;
+      console.warn(`[API Network Error] ${options.method || 'GET'} ${endpoint}:`, reachMsg, networkErr);
+      throw new Error(reachMsg);
+    }
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        this.notifyAuthError();
+        let errDetail = 'Session expired or authentication required. Please sign in again.';
         try {
           const errData = await response.json();
-          errDetail = errData.detail?.message || errData.detail || JSON.stringify(errData);
-        } catch {
-          errDetail = response.statusText;
-        }
-        throw new Error(errDetail);
+          errDetail = errData.detail?.message || errData.detail || errDetail;
+        } catch {}
+        throw new Error(`Authentication Required (401): ${errDetail}`);
       }
-      return (await response.json()) as T;
-    } catch (err: any) {
-      console.warn(`[API] ${options.method || 'GET'} ${endpoint} failed:`, err.message);
-      throw err;
+
+      if (response.status === 403) {
+        let errDetail = 'You do not have permission to perform this action.';
+        try {
+          const errData = await response.json();
+          errDetail = errData.detail?.message || errData.detail || errDetail;
+        } catch {}
+        throw new Error(`Access Forbidden (403): ${errDetail}`);
+      }
+
+      let errDetail = `Request failed (${response.status} ${response.statusText})`;
+      try {
+        const errData = await response.json();
+        errDetail = errData.detail?.message || errData.detail || JSON.stringify(errData);
+      } catch {}
+      throw new Error(errDetail);
     }
+
+    return (await response.json()) as T;
   }
 
   // Content

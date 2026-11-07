@@ -239,11 +239,14 @@ export const TruthGraphView: React.FC<{ currentRole: UserRole }> = ({ currentRol
                     }}
                     className="w-full text-xs sm:text-sm border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 bg-white/80 dark:bg-slate-950/80 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
                   >
-                    {facts.map(f => (
-                      <option key={f.id} value={f.id}>
-                        {f.id} - {f.name} (Current: {f.current_value})
-                      </option>
-                    ))}
+                    {facts.map(f => {
+                      const latestVal = f.versions && f.versions.length > 0 ? f.versions[f.versions.length - 1].value : 'N/A';
+                      return (
+                        <option key={f.id} value={f.id}>
+                          {f.id} - {f.name} (Current: {latestVal})
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
 

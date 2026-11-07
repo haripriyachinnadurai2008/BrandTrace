@@ -17,17 +17,21 @@ from app.config import settings
 
 
 def test_login_success_all_four_roles(db_session):
-    """Confirm all 4 seeded users can log in with BrandTrace2026!"""
+    """Confirm all 4 seeded users can log in with BrandTrace2026! or demo123 via primary email or alias."""
     db = db_session
     roles_and_emails = [
-        ("Admin", "admin@aura-audio.com"),
-        ("Creator", "creator@aura-audio.com"),
-        ("Reviewer", "reviewer@aura-audio.com"),
-        ("Agency", "agency@partner.com"),
+        ("Admin", "admin@aura-audio.com", "BrandTrace2026!"),
+        ("Creator", "creator@aura-audio.com", "BrandTrace2026!"),
+        ("Reviewer", "reviewer@aura-audio.com", "BrandTrace2026!"),
+        ("Agency", "agency@partner.com", "BrandTrace2026!"),
+        ("Admin", "elena@brandtrace.internal", "demo123"),
+        ("Creator", "marcus@brandtrace.internal", "demo123"),
+        ("Reviewer", "devin@brandtrace.internal", "demo123"),
+        ("Agency", "agency@brandtrace.internal", "demo123"),
     ]
 
-    for role_name, email in roles_and_emails:
-        req = LoginRequest(email=email, password="BrandTrace2026!")
+    for role_name, email, password in roles_and_emails:
+        req = LoginRequest(email=email, password=password)
         res = login(payload=req, db=db)
         assert res.access_token is not None
         assert len(res.access_token) > 20

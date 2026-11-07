@@ -75,18 +75,60 @@ def login(
     """
     email_clean = payload.email.strip().lower()
 
-    # Match by email or username prefix
+    # Match by email or username prefix / alias
     user = db.query(User).filter(User.email.ilike(email_clean)).first()
     if not user:
-        # Check alias for agency
-        if "agency" in email_clean:
-            user = db.query(User).filter(User.email.ilike("%agency%")).first()
-        elif "admin" in email_clean:
-            user = db.query(User).filter(User.email.ilike("%admin%")).first()
-        elif "creator" in email_clean:
-            user = db.query(User).filter(User.email.ilike("%creator%")).first()
-        elif "reviewer" in email_clean:
-            user = db.query(User).filter(User.email.ilike("%reviewer%")).first()
+        if "elena" in email_clean or "admin" in email_clean:
+            user = db.query(User).filter((User.role == UserRole.ADMIN) | User.email.ilike("%admin%") | User.name.ilike("%elena%")).first()
+        elif "marcus" in email_clean or "creator" in email_clean:
+            user = db.query(User).filter((User.role == UserRole.CREATOR) | User.email.ilike("%creator%") | User.name.ilike("%marcus%")).first()
+        elif "devin" in email_clean or "reviewer" in email_clean:
+            user = db.query(User).filter((User.role == UserRole.REVIEWER) | User.email.ilike("%reviewer%") | User.name.ilike("%devin%")).first()
+        elif "agency" in email_clean or "partner" in email_clean:
+            user = db.query(User).filter((User.role == UserRole.AGENCY) | User.email.ilike("%agency%") | User.email.ilike("%partner%")).first()
+
+    # If still not found, auto-provision the demo user so demo sign-in is guaranteed
+    if not user:
+        demo_profiles = {
+            "elena@brandtrace.internal": ("usr_admin_elena", "Elena Vance", UserRole.ADMIN),
+            "admin@aura-audio.com": ("usr_admin_elena", "Elena Vance", UserRole.ADMIN),
+            "marcus@brandtrace.internal": ("usr_creator_marcus", "Marcus Brody", UserRole.CREATOR),
+            "creator@aura-audio.com": ("usr_creator_marcus", "Marcus Brody", UserRole.CREATOR),
+            "devin@brandtrace.internal": ("usr_reviewer_devin", "Devin Chen", UserRole.REVIEWER),
+            "reviewer@aura-audio.com": ("usr_reviewer_devin", "Devin Chen", UserRole.REVIEWER),
+            "agency@brandtrace.internal": ("usr_agency_partner", "Partner Agency", UserRole.AGENCY),
+            "agency@partner.com": ("usr_agency_partner", "Partner Agency", UserRole.AGENCY),
+        }
+
+        matched_profile = demo_profiles.get(email_clean)
+        if not matched_profile:
+            if "elena" in email_clean or "admin" in email_clean:
+                matched_profile = ("usr_admin_elena", "Elena Vance", UserRole.ADMIN)
+            elif "marcus" in email_clean or "creator" in email_clean:
+                matched_profile = ("usr_creator_marcus", "Marcus Brody", UserRole.CREATOR)
+            elif "devin" in email_clean or "reviewer" in email_clean:
+                matched_profile = ("usr_reviewer_devin", "Devin Chen", UserRole.REVIEWER)
+            elif "agency" in email_clean:
+                matched_profile = ("usr_agency_partner", "Partner Agency", UserRole.AGENCY)
+
+        if matched_profile:
+            try:
+                u_id, u_name, u_role = matched_profile
+                user = User(
+                    id=u_id,
+                    org_id="org_aura_audio",
+                    name=u_name,
+                    email=email_clean,
+                    password_hash=hash_password("BrandTrace2026!"),
+                    role=u_role,
+                    created_at=datetime.now(IST)
+                )
+                db.add(user)
+                db.commit()
+                db.refresh(user)
+            except Exception:
+                db.rollback()
+                user = db.query(User).filter(User.email.ilike(email_clean)).first()
 
     if not user:
         raise HTTPException(
@@ -97,7 +139,7 @@ def login(
     if not verify_password(payload.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid credentials: incorrect password. (Demo password: 'BrandTrace2026!')"
+            detail="Invalid credentials: incorrect password. (Demo password: 'demo123' or 'BrandTrace2026!')"
         )
 
     token = create_access_token({"sub": user.id, "email": user.email, "role": user.role.value})

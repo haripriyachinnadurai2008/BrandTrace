@@ -22,8 +22,8 @@ export const LoginPage: React.FC = () => {
   const { navigate } = useRouter();
   useTheme();
 
-  const [email, setEmail] = useState<string>('elena@brandtrace.internal');
-  const [password, setPassword] = useState<string>('demo123');
+  const [email, setEmail] = useState<string>('admin@aura-audio.com');
+  const [password, setPassword] = useState<string>('BrandTrace2026!');
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -54,7 +54,7 @@ export const LoginPage: React.FC = () => {
       if (msg.includes('Cannot reach backend') || msg.includes('Failed to fetch')) {
         setErrorMsg(`Cannot reach backend server at ${API_BASE_URL}. The free tier may be waking up (please wait 30-60s) or check network connection.`);
       } else if (msg.includes('401') || msg.includes('user not found') || msg.includes('Invalid credentials')) {
-        setErrorMsg('Invalid credentials: user not found or incorrect password.');
+        setErrorMsg('Invalid credentials: user not found or incorrect password. (Use default demo accounts: admin@aura-audio.com with BrandTrace2026!)');
       } else if (msg.includes('403')) {
         setErrorMsg('Access forbidden: your account does not have sign-in permissions.');
       } else {
@@ -75,32 +75,32 @@ export const LoginPage: React.FC = () => {
     {
       role: 'Admin',
       name: 'Elena Vance',
-      email: 'elena@brandtrace.internal',
-      pass: 'demo123',
+      email: 'admin@aura-audio.com',
+      pass: 'BrandTrace2026!',
       desc: 'Full authority: create/edit facts, execute blast radius, sign off live status.',
       badgeColor: 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 border-purple-300 dark:border-purple-800',
     },
     {
       role: 'Creator',
       name: 'Marcus Brody',
-      email: 'marcus@brandtrace.internal',
-      pass: 'demo123',
+      email: 'creator@aura-audio.com',
+      pass: 'BrandTrace2026!',
       desc: 'Author collateral, run extraction, view evidence, request review.',
       badgeColor: 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border-blue-300 dark:border-blue-800',
     },
     {
       role: 'Reviewer',
       name: 'Devin Chen',
-      email: 'devin@brandtrace.internal',
-      pass: 'demo123',
+      email: 'reviewer@aura-audio.com',
+      pass: 'BrandTrace2026!',
       desc: 'Verify claims, apply living guidelines precedents, approve fixes.',
       badgeColor: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800',
     },
     {
       role: 'Agency',
       name: 'Partner Agency',
-      email: 'agency@brandtrace.internal',
-      pass: 'demo123',
+      email: 'agency@partner.com',
+      pass: 'BrandTrace2026!',
       desc: 'Campaign-scoped read-only access to verify brand claim guidelines.',
       badgeColor: 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-amber-300 dark:border-amber-800',
     },

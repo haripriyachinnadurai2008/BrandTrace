@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.config import IST
 from app.database import engine, SessionLocal, Base, apply_audit_triggers
+from app.auth.jwt import hash_password
 from app.models.auth import Organization, User, UserRole
 from app.models.facts import EvidenceSource, BrandFact, FactVersion
 from app.models.campaign import Campaign, CampaignFact
@@ -50,11 +51,13 @@ def seed_database(db: Session = None, target_engine = None) -> dict:
         db.flush()
 
         # 2. Users (Admin, Creator, Reviewer, Agency)
+        demo_pwd_hash = hash_password("BrandTrace2026!")
         admin = User(
             id="usr_admin_elena",
             org_id=org.id,
             name="Elena Vance",
             email="admin@aura-audio.com",
+            password_hash=demo_pwd_hash,
             role=UserRole.ADMIN,
             created_at=datetime(2026, 8, 1, 9, 0, 0, tzinfo=IST)
         )
@@ -63,6 +66,7 @@ def seed_database(db: Session = None, target_engine = None) -> dict:
             org_id=org.id,
             name="Marcus Brody",
             email="creator@aura-audio.com",
+            password_hash=demo_pwd_hash,
             role=UserRole.CREATOR,
             created_at=datetime(2026, 8, 1, 9, 0, 0, tzinfo=IST)
         )
@@ -71,6 +75,7 @@ def seed_database(db: Session = None, target_engine = None) -> dict:
             org_id=org.id,
             name="Devin Chen",
             email="reviewer@aura-audio.com",
+            password_hash=demo_pwd_hash,
             role=UserRole.REVIEWER,
             created_at=datetime(2026, 8, 1, 9, 0, 0, tzinfo=IST)
         )
@@ -79,6 +84,7 @@ def seed_database(db: Session = None, target_engine = None) -> dict:
             org_id=org.id,
             name="Partner Agency (Read-Only)",
             email="agency@partner.com",
+            password_hash=demo_pwd_hash,
             role=UserRole.AGENCY,
             created_at=datetime(2026, 8, 1, 9, 0, 0, tzinfo=IST)
         )

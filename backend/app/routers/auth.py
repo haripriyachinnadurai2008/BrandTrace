@@ -1,14 +1,62 @@
+import uuid
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
 
 from app.database import get_db
-from app.models.auth import User
+from app.models.auth import User, UserRole
 from app.auth.guards import get_current_user
-from app.auth.jwt import verify_password, create_access_token
-from app.schemas.auth import UserResponse, UserPublicResponse, LoginRequest, TokenResponse
+from app.auth.jwt import verify_password, create_access_token, hash_password
+from app.config import IST
+from app.schemas.auth import UserResponse, UserPublicResponse, LoginRequest, RegisterRequest, TokenResponse
 
 router = APIRouter(tags=["Authentication & Users"])
+
+
+@router.post("/auth/register", response_model=TokenResponse)
+@router.post("/users/register", response_model=TokenResponse)
+def register(
+    payload: RegisterRequest,
+    db: Session = Depends(get_db)
+):
+    """Register a new user account with role."""
+    email_clean = payload.email.strip().lower()
+    existing = db.query(User).filter(User.email.ilike(email_clean)).first()
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="A user with this email already exists."
+        )
+
+    # Determine valid role
+    role_map = {
+        "admin": UserRole.ADMIN,
+        "creator": UserRole.CREATOR,
+        "reviewer": UserRole.REVIEWER,
+        "agency": UserRole.AGENCY,
+    }
+    assigned_role = role_map.get((payload.role or "creator").lower(), UserRole.CREATOR)
+
+    new_user = User(
+        id=f"usr_{uuid.uuid4().hex[:12]}",
+        org_id="org_aura_audio",
+        name=payload.name.strip(),
+        email=email_clean,
+        password_hash=hash_password(payload.password),
+        role=assigned_role,
+        created_at=datetime.now(IST)
+    )
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+
+    token = create_access_token({"sub": new_user.id, "email": new_user.email, "role": new_user.role.value})
+    return TokenResponse(
+        access_token=token,
+        token_type="bearer",
+        user=UserPublicResponse.model_validate(new_user)
+    )
 
 
 @router.post("/auth/login", response_model=TokenResponse)

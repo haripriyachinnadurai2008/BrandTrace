@@ -3,8 +3,8 @@ import { UserRole } from '../types';
 const rawEnvUrl = import.meta.env.VITE_API_BASE_URL;
 const isDev = import.meta.env.DEV;
 
-// In dev, default to localhost:8000. In production, require VITE_API_BASE_URL.
-export const API_BASE_URL = (rawEnvUrl ? rawEnvUrl.trim().replace(/\/+$/, '') : (isDev ? 'http://localhost:8000' : ''));
+// In dev, default to localhost:8000. In production, default to https://brandtrace.onrender.com
+export const API_BASE_URL = (rawEnvUrl ? rawEnvUrl.trim().replace(/\/+$/, '') : (isDev ? 'http://localhost:8000' : 'https://brandtrace.onrender.com'));
 export const isMissingApiUrl = !API_BASE_URL;
 
 class ApiClient {
@@ -52,6 +52,23 @@ class ApiClient {
     const res = await this.request<any>('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
+    });
+    if (res && res.access_token) {
+      this.token = res.access_token;
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('brandtrace_token', res.access_token);
+      }
+      if (res.user && res.user.role) {
+        this.setRole(res.user.role as UserRole);
+      }
+    }
+    return res;
+  }
+
+  async register(name: string, email: string, password: string, role: string = 'Creator'): Promise<any> {
+    const res = await this.request<any>('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ name, email, password, role }),
     });
     if (res && res.access_token) {
       this.token = res.access_token;

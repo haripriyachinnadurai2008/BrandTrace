@@ -1,7 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api/client';
-import { BrandFact, FactVersion, UserRole, FactImpactResponse } from '../types';
-import { GitCommitIcon, HistoryIcon, SparklesIcon, CheckCircleIcon, AlertTriangleIcon, CheckIcon } from '../components/Icons';
+import { BrandFact, UserRole, FactImpactResponse } from '../types';
+import { GlassCard } from '../components/common/GlassCard';
+import { Button } from '../components/common/Button';
+import { Skeleton } from '../components/common/Skeleton';
+import { showToast } from '../components/common/Toast';
+import {
+  GitCommitIcon,
+  SparklesIcon,
+  CheckCircleIcon,
+  AlertTriangleIcon,
+  CheckIcon,
+  FileTextIcon,
+  ArrowRightIcon,
+} from '../components/Icons';
 
 export const TruthGraphView: React.FC<{ currentRole: UserRole }> = ({ currentRole }) => {
   const [facts, setFacts] = useState<BrandFact[]>([]);
@@ -85,11 +97,15 @@ export const TruthGraphView: React.FC<{ currentRole: UserRole }> = ({ currentRol
         source_page: sourcePage,
         reason: changeReason,
       });
-      setSuccessMsg(`Fact version successfully updated. Downstream approvals invalidated and notifications dispatched.`);
+      const msg = `Fact version successfully updated. Downstream approvals invalidated and notifications dispatched.`;
+      setSuccessMsg(msg);
+      showToast({ type: 'success', title: 'Fact Version Committed', message: msg });
       setPreviewOpen(false);
       loadFacts();
     } catch (err: any) {
-      setError(err.message || 'Transaction failed and was rolled back');
+      const msg = err.message || 'Transaction failed and was rolled back';
+      setError(msg);
+      showToast({ type: 'error', title: 'Commit Failed', message: msg });
     } finally {
       setSubmitting(false);
     }
@@ -100,33 +116,39 @@ export const TruthGraphView: React.FC<{ currentRole: UserRole }> = ({ currentRol
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+      <GlassCard className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center space-x-2">
-            <GitCommitIcon className="w-5 h-5 text-purple-600" />
-            <h1 className="text-xl font-bold text-slate-900">Brand Truth Graph & Fact Versioning</h1>
+            <GitCommitIcon className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+            <h1 className="text-xl font-extrabold text-slate-900 dark:text-white">
+              Brand Truth Graph &amp; Fact Versioning
+            </h1>
           </div>
-          <p className="text-sm text-slate-500 mt-1">
-            "Git for brand facts": Single-source-of-truth timeline with atomic transactional cascades and rollback guarantee.
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
+            &quot;Git for brand facts&quot;: Single-source-of-truth timeline with atomic transactional cascades and rollback guarantee.
           </p>
         </div>
 
         <div className="flex items-center space-x-2">
-          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${isAdmin ? 'bg-purple-100 text-purple-800' : 'bg-slate-100 text-slate-600'}`}>
+          <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${
+            isAdmin
+              ? 'bg-purple-100 dark:bg-purple-950 text-purple-800 dark:text-purple-300 border-purple-300 dark:border-purple-800'
+              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+          }`}>
             {isAdmin ? 'Admin: Full Versioning Access' : `${currentRole}: Read-Only Truth Graph`}
           </span>
         </div>
-      </div>
+      </GlassCard>
 
       {error && (
-        <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-sm">
+        <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-200 text-xs animate-in fade-in">
           {error}
         </div>
       )}
 
       {successMsg && (
-        <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm flex items-center space-x-2">
-          <CheckIcon className="w-4 h-4 text-emerald-600" />
+        <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 text-xs flex items-center space-x-2 animate-in fade-in">
+          <CheckIcon className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
           <span>{successMsg}</span>
         </div>
       )}
@@ -134,277 +156,239 @@ export const TruthGraphView: React.FC<{ currentRole: UserRole }> = ({ currentRol
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left: Fact Version Timeline */}
         <div className="lg:col-span-7 space-y-4">
-          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+          <GlassCard className="p-5">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200/60 dark:border-slate-800/60">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                 Fact Timeline History: {selectedFact?.name} ({selectedFact?.id})
               </span>
               <span className="text-xs font-mono text-slate-400">Asia/Kolkata (IST)</span>
             </div>
 
             {loading ? (
-              <div className="py-12 text-center text-slate-400">Loading version history...</div>
+              <div className="py-8 space-y-3">
+                <Skeleton className="h-12 w-full" count={3} />
+              </div>
             ) : !selectedFact?.versions || selectedFact.versions.length === 0 ? (
               <div className="py-8 text-center text-slate-400 italic">No versions recorded.</div>
             ) : (
-              <div className="mt-4 relative pl-6 border-l-2 border-purple-200 space-y-6">
-                {selectedFact.versions.map((ver, idx) => {
-                  const isCurrent = ver.status === 'approved' && !ver.valid_to;
-                  return (
-                    <div key={ver.version_id || idx} className="relative group">
-                      <div
-                        className={`absolute -left-[31px] top-1.5 w-4 h-4 rounded-full border-2 bg-white ${
-                          isCurrent ? 'border-purple-600 ring-4 ring-purple-100' : 'border-slate-300'
-                        }`}
-                      />
-                      <div className="p-4 rounded-xl border border-slate-200 bg-white hover:border-purple-300 transition shadow-xs">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-2">
-                            <span className="font-mono text-sm font-bold text-slate-900">
-                              v{ver.version_no}
-                            </span>
-                            <span className="text-lg font-bold text-purple-700 font-mono">
-                              {ver.value}
-                            </span>
-                            <span
-                              className={`px-2 py-0.5 rounded text-xs uppercase tracking-wider font-semibold ${
-                                isCurrent
-                                  ? 'bg-emerald-100 text-emerald-800'
-                                  : 'bg-slate-100 text-slate-600'
-                              }`}
-                            >
-                              {ver.status}
-                            </span>
-                          </div>
-                          <span className="text-xs text-slate-400 font-mono">
-                            Page {ver.source_page}
-                          </span>
-                        </div>
-
-                        <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-slate-600">
-                          <div>
-                            <span className="text-slate-400">Effective From:</span>{' '}
-                            <span className="font-mono font-medium text-slate-800">
-                              {new Date(ver.valid_from).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' })}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-slate-400">Valid To:</span>{' '}
-                            <span className="font-mono font-medium text-slate-800">
-                              {ver.valid_to
-                                ? new Date(ver.valid_to).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' })
-                                : 'Active (Indefinite)'}
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="mt-2 text-xs text-slate-500 flex items-center justify-between border-t border-slate-100 pt-2">
-                          <span>Source ID: <strong className="font-mono text-slate-700">{ver.source_id}</strong></span>
-                          <span>Norm: <strong className="font-mono text-purple-900">{ver.normalised_value}</strong></span>
-                        </div>
+              <div className="mt-4 relative pl-6 border-l-2 border-purple-200 dark:border-purple-800 space-y-6">
+                {selectedFact.versions.map((ver, idx) => (
+                  <div key={ver.version_id || idx} className="relative">
+                    <div className="absolute -left-[31px] top-1 w-4 h-4 rounded-full bg-purple-600 border-2 border-white dark:border-slate-900 shadow-xs" />
+                    <div className="p-4 rounded-xl border border-slate-200/80 dark:border-slate-800/80 bg-white/50 dark:bg-slate-950/40">
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono text-xs font-bold text-purple-600 dark:text-purple-400">
+                          Version {ver.version_no} · ID: {ver.version_id}
+                        </span>
+                        <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400">
+                          {ver.created_at ? new Date(ver.created_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : ''}
+                        </span>
                       </div>
+
+                      <div className="mt-2 flex items-baseline gap-2">
+                        <span className="text-xl font-bold font-mono text-slate-900 dark:text-white">
+                          {ver.value}
+                        </span>
+                        <span className="text-xs text-slate-500">{ver.unit}</span>
+                      </div>
+
+                      <div className="mt-2 text-xs text-slate-600 dark:text-slate-300">
+                        <div>Valid from: <strong className="font-mono">{ver.valid_from ? new Date(ver.valid_from).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'Immediate'}</strong></div>
+                        {(ver as any).reason && <div className="mt-1 text-slate-500 italic">&quot;{(ver as any).reason}&quot;</div>}
+                      </div>
+
+                      {((ver as any).source_file_name || ver.source_id) && (
+                        <div className="mt-2.5 pt-2 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-500 flex items-center gap-1.5">
+                          <FileTextIcon className="w-3.5 h-3.5 text-purple-500" />
+                          <span>Source: <strong>{(ver as any).source_file_name || ver.source_id}</strong> (Page {ver.source_page})</span>
+                        </div>
+                      )}
                     </div>
-                  );
-                })}
+                  </div>
+                ))}
               </div>
             )}
-          </div>
+          </GlassCard>
         </div>
 
-        {/* Right: New Version Mutation Form (Admin Only) */}
+        {/* Right: Mutate Fact Version (Admin Only) */}
         <div className="lg:col-span-5 space-y-4">
-          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                Propose Fact Revision
+          <GlassCard className="p-5">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200/60 dark:border-slate-800/60">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                Mutate Fact (Transactional)
               </span>
-              <span className="text-xs text-purple-600 font-medium">Atomic Commit</span>
+              <span className="text-xs font-mono text-purple-600 dark:text-purple-400 font-bold">Atomic Commit</span>
             </div>
 
             {!isAdmin ? (
-              <div className="py-8 text-center text-slate-500 text-sm">
-                <p className="font-medium text-slate-700">Mutation Guard Active</p>
-                <p className="text-xs text-slate-400 mt-1">
-                  Only the <strong>Admin</strong> role can record new fact versions and trigger downstream impact cascades.
-                </p>
+              <div className="py-8 text-center text-slate-400 text-xs">
+                Role <strong>{currentRole}</strong> has read-only access to the Brand Truth Graph. Switch to <strong>Admin</strong> to author new versions.
               </div>
             ) : (
-              <div className="mt-4 space-y-4 text-sm">
+              <div className="mt-4 space-y-3.5">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    New Fact Value
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                    Select Target Fact
+                  </label>
+                  <select
+                    value={selectedFact?.id || ''}
+                    onChange={(e) => {
+                      const f = facts.find(fact => fact.id === e.target.value);
+                      if (f) setSelectedFact(f);
+                    }}
+                    className="w-full text-xs sm:text-sm border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 bg-white/80 dark:bg-slate-950/80 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  >
+                    {facts.map(f => (
+                      <option key={f.id} value={f.id}>
+                        {f.id} - {f.name} (Current: {f.current_value})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                    New Proposed Value
                   </label>
                   <input
                     type="text"
                     value={newValue}
                     onChange={(e) => setNewValue(e.target.value)}
-                    placeholder="e.g. ₹5,499"
-                    className="w-full p-2.5 border border-slate-300 rounded-lg text-slate-900 font-mono text-sm focus:ring-2 focus:ring-purple-500"
+                    className="w-full text-xs sm:text-sm border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 font-mono bg-white/80 dark:bg-slate-950/80 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Effective From (Asia/Kolkata Midnight IST)
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                    Effective From Date (IST)
                   </label>
                   <input
                     type="date"
                     value={validFrom}
                     onChange={(e) => setValidFrom(e.target.value)}
-                    className="w-full p-2.5 border border-slate-300 rounded-lg text-slate-900 text-sm focus:ring-2 focus:ring-purple-500"
+                    className="w-full text-xs sm:text-sm border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 bg-white/80 dark:bg-slate-950/80 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 font-mono"
                   />
-                  <span className="text-xs text-slate-400 mt-0.5 block">
-                    Interpreted strictly as 00:00:00 IST (UTC-5:30 boundary)
-                  </span>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Evidence Source Document
-                    </label>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                    Supporting Document &amp; Page
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
                     <select
                       value={sourceId}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setSourceId(val);
-                        if (val === 'src_price_list_dec') {
-                          setSourcePage(3);
-                        } else if (val === 'src_price_list_sep') {
-                          setSourcePage(2);
-                        }
-                      }}
-                      className="w-full p-2.5 border border-slate-300 rounded-lg text-slate-900 text-sm focus:ring-2 focus:ring-purple-500 bg-white"
+                      onChange={(e) => setSourceId(e.target.value)}
+                      className="col-span-2 text-xs border border-slate-300 dark:border-slate-700 rounded-xl px-2.5 py-2 bg-white/80 dark:bg-slate-950/80 text-slate-900 dark:text-white"
                     >
                       {evidenceSources.length > 0 ? (
-                        evidenceSources.map((s) => (
-                          <option key={s.id} value={s.id}>
-                            {s.file_name} ({s.id})
-                          </option>
+                        evidenceSources.map(s => (
+                          <option key={s.id} value={s.id}>{s.name || s.id}</option>
                         ))
                       ) : (
-                        <>
-                          <option value="src_price_list_dec">Price_List_Dec.pdf (src_price_list_dec)</option>
-                          <option value="src_price_list_sep">Price_List_Sep.pdf (src_price_list_sep)</option>
-                        </>
+                        <option value="src_price_list_dec">pricing_memo_q4.pdf</option>
                       )}
                     </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Page Number
-                    </label>
                     <input
                       type="number"
+                      min={1}
                       value={sourcePage}
                       onChange={(e) => setSourcePage(parseInt(e.target.value) || 1)}
-                      className="w-full p-2.5 border border-slate-300 rounded-lg text-slate-900 text-sm focus:ring-2 focus:ring-purple-500"
+                      placeholder="Page #"
+                      className="text-xs border border-slate-300 dark:border-slate-700 rounded-xl px-2.5 py-2 font-mono bg-white/80 dark:bg-slate-950/80 text-slate-900 dark:text-white"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Change Rationale
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                    Change Reason / Audit Justification
                   </label>
                   <textarea
+                    rows={2}
                     value={changeReason}
                     onChange={(e) => setChangeReason(e.target.value)}
-                    rows={2}
-                    className="w-full p-2.5 border border-slate-300 rounded-lg text-slate-900 text-sm focus:ring-2 focus:ring-purple-500"
+                    placeholder="Mandatory reason for audit trail..."
+                    className="w-full text-xs border border-slate-300 dark:border-slate-700 rounded-xl p-2.5 bg-white/80 dark:bg-slate-950/80 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
                   />
                 </div>
 
-                <button
+                <Button
+                  variant="primary"
+                  size="md"
                   onClick={handlePreviewImpact}
-                  disabled={previewLoading || !newValue.trim()}
-                  className="w-full py-2.5 px-4 bg-purple-600 hover:bg-purple-700 text-white font-medium text-sm rounded-lg transition shadow-sm flex items-center justify-center space-x-2"
+                  disabled={previewLoading || !newValue}
+                  isLoading={previewLoading}
+                  rightIcon={<ArrowRightIcon className="w-4 h-4" />}
+                  className="w-full mt-2"
                 >
-                  <SparklesIcon className="w-4 h-4" />
-                  <span>{previewLoading ? 'Evaluating Graph...' : 'Preview What This Change Will Do'}</span>
-                </button>
+                  Preview Blast Radius Impact
+                </Button>
               </div>
             )}
-          </div>
+          </GlassCard>
         </div>
       </div>
 
-      {/* Preview Modal before Confirming */}
+      {/* Impact Preview Modal */}
       {previewOpen && previewData && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full p-6 border border-slate-200 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
-              <div>
-                <h3 className="text-lg font-bold text-slate-900">
-                  Pre-Commit Impact Verification: {selectedFact?.name}
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in">
+          <GlassCard intensity="prominent" className="max-w-xl w-full p-6 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200/80 dark:border-slate-800/80">
+              <div className="flex items-center space-x-2">
+                <SparklesIcon className="w-5 h-5 text-purple-600" />
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  Atomic Commit Preview: {selectedFact?.id}
                 </h3>
-                <p className="text-xs text-slate-500">
-                  Reviewing atomic downstream cascade before writing to database.
-                </p>
               </div>
-              <span className="text-sm font-bold font-mono text-purple-700">
-                v{previewData.new_version_no} ({previewData.new_value})
-              </span>
+              <span className="text-xs font-mono text-purple-600 dark:text-purple-400 font-bold">Pre-Flight Simulation</span>
             </div>
 
-            {/* Impact Summary Counters */}
-            <div className="grid grid-cols-4 gap-2 my-4 text-center">
-              <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200">
-                <div className="text-lg font-bold text-amber-800">{previewData.summary.re_review}</div>
-                <div className="text-xs text-amber-600 font-medium">Re-review Req</div>
+            <div className="p-3.5 bg-purple-500/10 rounded-xl border border-purple-200 dark:border-purple-800 text-xs text-purple-900 dark:text-purple-200 leading-relaxed">
+              ⚠️ <strong>Atomic Invalidation Notice:</strong> Committing this version will invalidate approvals across <strong>{previewData.summary.re_review}</strong> asset(s) and flag <strong>{previewData.summary.red_alert}</strong> live RED ALERT(s). All mutations occur in a single database transaction.
+            </div>
+
+            <div className="grid grid-cols-4 gap-2 text-center text-xs">
+              <div className="p-2.5 rounded-xl bg-amber-500/15 border border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200">
+                <div className="font-bold text-base">{previewData.summary.re_review}</div>
+                <div>Re-review</div>
               </div>
-              <div className="p-2.5 rounded-lg bg-slate-100 border border-slate-200">
-                <div className="text-lg font-bold text-slate-800">{previewData.summary.stale}</div>
-                <div className="text-xs text-slate-600 font-medium">Drafts Stale</div>
+              <div className="p-2.5 rounded-xl bg-purple-500/15 border border-purple-300 dark:border-purple-800 text-purple-900 dark:text-purple-200">
+                <div className="font-bold text-base">{previewData.summary.stale}</div>
+                <div>Stale</div>
               </div>
-              <div className="p-2.5 rounded-lg bg-red-50 border border-red-200">
-                <div className="text-lg font-bold text-red-800">{previewData.summary.red_alert}</div>
-                <div className="text-xs text-red-600 font-medium">RED ALERTS</div>
+              <div className="p-2.5 rounded-xl bg-rose-500/15 border border-rose-300 dark:border-rose-800 text-rose-900 dark:text-rose-200">
+                <div className="font-bold text-base">{previewData.summary.red_alert}</div>
+                <div>RED ALERT</div>
               </div>
-              <div className="p-2.5 rounded-lg bg-emerald-50 border border-emerald-200">
-                <div className="text-lg font-bold text-emerald-800">{previewData.summary.left_alone}</div>
-                <div className="text-xs text-emerald-600 font-medium">Left Alone</div>
+              <div className="p-2.5 rounded-xl bg-emerald-500/15 border border-emerald-300 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200">
+                <div className="font-bold text-base">{previewData.summary.left_alone}</div>
+                <div>Left Alone</div>
               </div>
             </div>
 
-            {/* List of Affected Assets */}
-            <div className="space-y-2 mt-3 max-h-60 overflow-y-auto pr-1">
-              {previewData.items.map((item, idx) => (
-                <div key={idx} className="p-2.5 rounded-lg border border-slate-200 text-xs flex items-center justify-between bg-slate-50">
-                  <div>
-                    <span className="font-semibold text-slate-900">{item.title}</span>
-                    <span className="ml-2 text-slate-500 capitalize">({item.channel})</span>
-                  </div>
-                  <span className={`font-semibold px-2 py-0.5 rounded ${
-                    item.is_red_alert ? 'bg-red-600 text-white' : item.is_re_review ? 'bg-amber-100 text-amber-800' : 'bg-slate-200 text-slate-700'
-                  }`}>
-                    {item.action_required}
-                  </span>
-                </div>
-              ))}
-            </div>
-
-            {/* Action Buttons */}
-            <div className="mt-6 pt-4 border-t border-slate-200 flex justify-end space-x-3">
-              <button
+            <div className="flex justify-end space-x-2 pt-2">
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => setPreviewOpen(false)}
-                className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition"
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
                 onClick={handleConfirmAtomicCommit}
                 disabled={submitting}
-                className="px-5 py-2 text-xs font-semibold text-white bg-purple-600 hover:bg-purple-700 disabled:opacity-50 rounded-lg transition shadow-sm flex items-center space-x-1.5"
+                isLoading={submitting}
+                rightIcon={<CheckCircleIcon className="w-4 h-4" />}
               >
-                <GitCommitIcon className="w-4 h-4" />
-                <span>{submitting ? 'Committing Transaction...' : 'Commit Version & Cascade Impact'}</span>
-              </button>
+                Confirm &amp; Broadcast Transaction
+              </Button>
             </div>
-          </div>
+          </GlassCard>
         </div>
       )}
     </div>
   );
 };
-

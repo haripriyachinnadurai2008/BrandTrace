@@ -2,15 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../api/client';
 import { ContentItem, Finding, ContentCheckResult, UserRole } from '../types';
 import { TierBadge, StatusBadge, ConfidenceBar } from '../components/Badges';
+import { GlassCard } from '../components/common/GlassCard';
+import { Button } from '../components/common/Button';
+import { CardSkeleton } from '../components/common/Skeleton';
+import { showToast } from '../components/common/Toast';
 import {
   ShieldCheckIcon,
-  AlertTriangleIcon,
   AlertCircleIcon,
   CheckCircleIcon,
   RefreshIcon,
   SparklesIcon,
   FileTextIcon,
-  CheckIcon
+  CheckIcon,
 } from '../components/Icons';
 
 export const FindingsView: React.FC<{ currentRole: UserRole }> = ({ currentRole }) => {
@@ -31,7 +34,7 @@ export const FindingsView: React.FC<{ currentRole: UserRole }> = ({ currentRole 
 
   // Selected fix options per finding
   const [selectedFixes, setSelectedFixes] = useState<Record<string, 'minimal' | 'professional' | 'marketing'>>({});
-  const [appliedFixes, setAppliedFixes] = useState<Record<string, string>>({});
+  const [, setAppliedFixes] = useState<Record<string, string>>({});
 
   useEffect(() => {
     loadItems();
@@ -108,10 +111,14 @@ export const FindingsView: React.FC<{ currentRole: UserRole }> = ({ currentRole 
       setSuccessMsg(null);
       const result = await api.checkContent(selectedId);
       setCheckResult(result);
-      setSuccessMsg(`Check completed: ${result.findings_count} finding(s) extracted.`);
+      const msg = `Verification complete: ${result.findings_count} finding(s) extracted.`;
+      setSuccessMsg(msg);
+      showToast({ type: 'success', title: 'Verification Completed', message: msg });
       loadDetail(selectedId);
     } catch (err: any) {
-      setError(err.message || 'Verification check failed');
+      const msg = err.message || 'Verification check failed';
+      setError(msg);
+      showToast({ type: 'error', title: 'Check Failed', message: msg });
     } finally {
       setChecking(false);
     }
@@ -124,11 +131,15 @@ export const FindingsView: React.FC<{ currentRole: UserRole }> = ({ currentRole 
       setError(null);
       setSuccessMsg(null);
       await api.approveContent(selectedId, 'Standard editorial approval passed after review');
-      setSuccessMsg('Content item approved successfully.');
+      const msg = 'Content item approved successfully.';
+      setSuccessMsg(msg);
+      showToast({ type: 'success', title: 'Content Approved', message: msg });
       loadItems();
       loadDetail(selectedId);
     } catch (err: any) {
-      setError(err.message || 'Approval rejected');
+      const msg = err.message || 'Approval rejected';
+      setError(msg);
+      showToast({ type: 'error', title: 'Approval Blocked', message: msg });
     } finally {
       setApproving(false);
     }
@@ -140,12 +151,16 @@ export const FindingsView: React.FC<{ currentRole: UserRole }> = ({ currentRole 
       setDismissLoading(true);
       setError(null);
       await api.dismissFinding(dismissFindingId, dismissReason, 'dismissed');
-      setSuccessMsg('Finding dismissed and logged to Precedents.');
+      const msg = 'Finding dismissed and logged to Precedents.';
+      setSuccessMsg(msg);
+      showToast({ type: 'info', title: 'Precedent Logged', message: msg });
       setDismissFindingId(null);
       setDismissReason('');
       handleRunCheck();
     } catch (err: any) {
-      setError(err.message || 'Failed to dismiss finding');
+      const msg = err.message || 'Failed to dismiss finding';
+      setError(msg);
+      showToast({ type: 'error', title: 'Dismiss Failed', message: msg });
     } finally {
       setDismissLoading(false);
     }
@@ -153,7 +168,9 @@ export const FindingsView: React.FC<{ currentRole: UserRole }> = ({ currentRole 
 
   const applyFixOption = (findingId: string, fixText: string) => {
     setAppliedFixes(prev => ({ ...prev, [findingId]: fixText }));
-    setSuccessMsg(`Fix selected: "${fixText}". Ready for editor update.`);
+    const msg = `Fix selected: "${fixText}". Ready for editor update.`;
+    setSuccessMsg(msg);
+    showToast({ type: 'info', title: 'Fix Selected', message: msg });
   };
 
   const selectedItem = items.find(i => i.id === selectedId);
@@ -165,26 +182,28 @@ export const FindingsView: React.FC<{ currentRole: UserRole }> = ({ currentRole 
 
   return (
     <div className="space-y-6">
-      {/* Top Header / Actions Bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+      {/* Top Header / Action Bar */}
+      <GlassCard className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center space-x-2">
-            <h1 className="text-xl font-bold text-slate-900">Content Verification & Findings</h1>
-            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-50 text-purple-700 border border-purple-200">
-              <SparklesIcon className="w-3.5 h-3.5 mr-1" />
-              AI-assisted analysis
+            <h1 className="text-xl font-extrabold text-slate-900 dark:text-white">
+              Content Verification &amp; Findings
+            </h1>
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+              <SparklesIcon className="w-3.5 h-3.5" />
+              <span>AI-assisted analysis</span>
             </span>
           </div>
-          <p className="text-sm text-slate-500 mt-1">
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
             Deterministic claim extraction, factual ground-truth matching, and human decision gate.
           </p>
         </div>
 
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center flex-wrap gap-3">
           <select
             value={selectedId}
             onChange={(e) => setSelectedId(e.target.value)}
-            className="text-sm border border-slate-300 rounded-lg px-3 py-2 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-500 font-medium"
+            className="text-xs sm:text-sm border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 bg-white/80 dark:bg-slate-950/80 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500 font-medium"
           >
             {items.map(it => (
               <option key={it.id} value={it.id}>
@@ -193,101 +212,116 @@ export const FindingsView: React.FC<{ currentRole: UserRole }> = ({ currentRole 
             ))}
           </select>
 
-          <button
+          <Button
+            variant="primary"
+            size="sm"
             onClick={handleRunCheck}
             disabled={checking || !selectedId}
-            className="inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg text-white bg-purple-600 hover:bg-purple-700 disabled:opacity-50 transition shadow-sm"
+            isLoading={checking}
+            leftIcon={<RefreshIcon className="w-4 h-4" />}
           >
-            <RefreshIcon className={`w-4 h-4 mr-2 ${checking ? 'animate-spin' : ''}`} />
             {checking ? 'Checking...' : 'Run Verification'}
-          </button>
+          </Button>
 
           {(currentRole === 'Reviewer' || currentRole === 'Admin') && selectedItem?.current_state !== 'archived' && (
-            <button
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={handleApprove}
               disabled={approving || hasCriticalOrHigh || selectedItem?.current_state === 'approved'}
+              isLoading={approving}
+              leftIcon={<CheckCircleIcon className="w-4 h-4 text-emerald-400" />}
               title={hasCriticalOrHigh ? 'Cannot approve: open Critical or High findings exist' : 'Approve content'}
-              className="inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 transition shadow-sm"
             >
-              <CheckCircleIcon className="w-4 h-4 mr-1.5" />
               {approving ? 'Approving...' : 'Approve Content'}
-            </button>
+            </Button>
           )}
         </div>
-      </div>
+      </GlassCard>
 
       {/* Notifications / Alerts */}
       {error && (
-        <div className="p-4 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-sm flex items-start space-x-2">
-          <AlertCircleIcon className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+        <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-200 text-xs flex items-start space-x-2 animate-in fade-in">
+          <AlertCircleIcon className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
           <div>
-            <span className="font-semibold">Action Blocked: </span>
+            <span className="font-bold">Action Blocked: </span>
             {error}
           </div>
         </div>
       )}
 
       {successMsg && (
-        <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm flex items-center space-x-2">
-          <CheckIcon className="w-4 h-4 text-emerald-600 shrink-0" />
+        <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 text-xs flex items-center space-x-2 animate-in fade-in">
+          <CheckIcon className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
           <span>{successMsg}</span>
         </div>
       )}
 
-      {/* Content Preview & Verification Layout */}
+      {/* Two Column Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left Column: Asset Copy & Highlighted Spans */}
+        {/* Left Column: Asset Text Preview */}
         <div className="lg:col-span-5 space-y-4">
-          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+          <GlassCard className="p-5">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200/60 dark:border-slate-800/60">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                 Asset Text Preview
               </span>
               <StatusBadge status={selectedItem?.current_state || 'draft'} />
             </div>
 
-            <div className="mt-4 p-4 bg-slate-50 rounded-lg border border-slate-200 text-sm leading-relaxed font-sans text-slate-800 whitespace-pre-wrap select-text">
-              {rawText || <span className="text-slate-400 italic">No text found.</span>}
+            <div className="mt-4 p-4 rounded-xl bg-slate-100/60 dark:bg-slate-950/60 border border-slate-200/60 dark:border-slate-800/60 text-xs sm:text-sm leading-relaxed font-sans text-slate-800 dark:text-slate-200 whitespace-pre-wrap select-text">
+              {loading ? (
+                <div className="space-y-2 py-4">
+                  <div className="h-4 bg-slate-200 dark:bg-slate-800 rounded animate-pulse" />
+                  <div className="h-4 bg-slate-200 dark:bg-slate-800 rounded animate-pulse w-5/6" />
+                  <div className="h-4 bg-slate-200 dark:bg-slate-800 rounded animate-pulse w-4/6" />
+                </div>
+              ) : (
+                rawText || <span className="text-slate-400 italic">No text found.</span>
+              )}
             </div>
 
             {checkResult && (
-              <div className="mt-4 p-3 rounded-lg flex items-center justify-between bg-slate-100 text-xs text-slate-600">
+              <div className="mt-4 p-3 rounded-xl flex items-center justify-between bg-slate-100/80 dark:bg-slate-950/80 border border-slate-200/60 dark:border-slate-800/60 text-xs text-slate-600 dark:text-slate-300">
                 <span>Overall Status:</span>
                 <span
-                  className={`font-semibold px-2 py-0.5 rounded ${
+                  className={`font-bold px-2 py-0.5 rounded-full ${
                     checkResult.content_status === 'Ready for review'
-                      ? 'bg-emerald-100 text-emerald-800'
-                      : 'bg-amber-100 text-amber-800'
+                      ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800'
+                      : 'bg-amber-500/10 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800'
                   }`}
                 >
                   {checkResult.content_status}
                 </span>
               </div>
             )}
-          </div>
+          </GlassCard>
         </div>
 
         {/* Right Column: Findings Breakdown */}
         <div className="lg:col-span-7 space-y-4">
-          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+          <GlassCard className="p-5">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200/60 dark:border-slate-800/60">
               <div className="flex items-center space-x-2">
-                <ShieldCheckIcon className="w-5 h-5 text-purple-600" />
-                <h2 className="text-base font-bold text-slate-900">
-                  Extracted Claims & Findings ({findingsList.length})
+                <ShieldCheckIcon className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                <h2 className="text-base font-bold text-slate-900 dark:text-white">
+                  Extracted Claims &amp; Findings ({findingsList.length})
                 </h2>
               </div>
-              <span className="text-xs text-slate-400">Deterministic Backend Verification</span>
+              <span className="text-xs text-slate-400">Deterministic Verification</span>
             </div>
 
             {loading ? (
-              <div className="py-12 text-center text-slate-400">Loading findings...</div>
+              <div className="py-6 space-y-3">
+                <CardSkeleton rows={2} />
+                <CardSkeleton rows={2} />
+              </div>
             ) : findingsList.length === 0 ? (
-              <div className="py-12 text-center text-slate-500">
-                <CheckCircleIcon className="w-10 h-10 text-emerald-400 mx-auto mb-2" />
-                <p className="font-medium text-slate-700">No open findings or issues.</p>
+              <div className="py-12 text-center text-slate-500 dark:text-slate-400">
+                <CheckCircleIcon className="w-10 h-10 text-emerald-500 mx-auto mb-2" />
+                <p className="font-bold text-slate-800 dark:text-slate-200">No open findings or issues.</p>
                 <p className="text-xs text-slate-400 mt-1">
-                  Click "Run Verification" to parse claims with LLM and verify against brand facts.
+                  Click &quot;Run Verification&quot; to parse claims with LLM and verify against brand facts.
                 </p>
               </div>
             ) : (
@@ -301,10 +335,10 @@ export const FindingsView: React.FC<{ currentRole: UserRole }> = ({ currentRole 
                       key={f.finding_id || idx}
                       className={`p-4 rounded-xl border transition-all ${
                         f.risk_tier === 'Critical'
-                          ? 'border-red-300 bg-red-50/40'
+                          ? 'border-rose-300 dark:border-rose-900/60 bg-rose-50/50 dark:bg-rose-950/20'
                           : f.risk_tier === 'High'
-                          ? 'border-orange-200 bg-orange-50/30'
-                          : 'border-slate-200 bg-slate-50/50'
+                          ? 'border-orange-200 dark:border-orange-900/60 bg-orange-50/50 dark:bg-orange-950/20'
+                          : 'border-slate-200 dark:border-slate-800 bg-white/40 dark:bg-slate-950/40'
                       }`}
                     >
                       {/* Finding Header */}
@@ -313,8 +347,8 @@ export const FindingsView: React.FC<{ currentRole: UserRole }> = ({ currentRole 
                           <TierBadge tier={f.risk_tier} />
                           <StatusBadge status={f.status} />
                           {f.raw_span_text && (
-                            <span className="font-mono text-xs font-semibold px-2 py-0.5 bg-white rounded border border-slate-200 text-slate-800">
-                              "{f.raw_span_text}"
+                            <span className="font-mono text-xs font-semibold px-2 py-0.5 bg-white/80 dark:bg-slate-900 rounded border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200">
+                              &quot;{f.raw_span_text}&quot;
                             </span>
                           )}
                         </div>
@@ -322,30 +356,30 @@ export const FindingsView: React.FC<{ currentRole: UserRole }> = ({ currentRole 
                       </div>
 
                       {/* Reason & Evidence Excerpt */}
-                      <div className="mt-3 text-sm text-slate-700">
+                      <div className="mt-3 text-xs sm:text-sm text-slate-700 dark:text-slate-300">
                         <p className="font-medium">{f.reason}</p>
                         {f.source_reference && (
-                          <div className="mt-2 text-xs flex items-center text-slate-500 bg-white/70 px-2.5 py-1 rounded border border-slate-200/80">
+                          <div className="mt-2 text-xs flex items-center text-slate-500 dark:text-slate-400 bg-white/60 dark:bg-slate-900/60 px-2.5 py-1 rounded-lg border border-slate-200/80 dark:border-slate-800">
                             <FileTextIcon className="w-3.5 h-3.5 mr-1 text-slate-400" />
-                            <span>Source Evidence: <strong className="text-slate-700">{f.source_reference}</strong></span>
+                            <span>Source Evidence: <strong className="text-slate-700 dark:text-slate-300">{f.source_reference}</strong></span>
                           </div>
                         )}
                       </div>
 
                       {/* Fix Options (Professional, Marketing, Minimal) */}
                       {f.fix_options && selectedItem?.current_state !== 'archived' && (
-                        <div className="mt-3 pt-3 border-t border-slate-200/60">
-                          <div className="text-xs font-semibold text-slate-600 mb-1.5 flex items-center justify-between">
+                        <div className="mt-3 pt-3 border-t border-slate-200/60 dark:border-slate-800/60">
+                          <div className="text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2 flex items-center justify-between">
                             <span>Re-verified Fix Recommendations:</span>
                             <div className="flex space-x-1">
                               {(['minimal', 'professional', 'marketing'] as const).map(mode => (
                                 <button
                                   key={mode}
                                   onClick={() => setSelectedFixes(prev => ({ ...prev, [f.finding_id]: mode }))}
-                                  className={`px-2 py-0.5 text-xs rounded capitalize transition ${
+                                  className={`px-2 py-0.5 text-xs rounded-md capitalize transition ${
                                     selectedFixType === mode
-                                      ? 'bg-purple-600 text-white font-medium'
-                                      : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                                      ? 'bg-purple-600 text-white font-medium shadow-xs'
+                                      : 'bg-white/80 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
                                   }`}
                                 >
                                   {mode}
@@ -354,19 +388,21 @@ export const FindingsView: React.FC<{ currentRole: UserRole }> = ({ currentRole 
                             </div>
                           </div>
 
-                          <div className="p-2.5 bg-white rounded-lg border border-slate-200 text-xs text-slate-800 flex items-center justify-between">
-                            <span className="italic font-sans">"{activeFixText}"</span>
-                            <button
+                          <div className="p-3 bg-white/80 dark:bg-slate-900/80 rounded-xl border border-slate-200 dark:border-slate-800 text-xs text-slate-800 dark:text-slate-200 flex items-center justify-between">
+                            <span className="italic font-sans">&quot;{activeFixText}&quot;</span>
+                            <Button
+                              variant="secondary"
+                              size="sm"
                               onClick={() => activeFixText && applyFixOption(f.finding_id, activeFixText)}
-                              className="ml-3 shrink-0 px-2.5 py-1 bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium rounded transition"
+                              className="ml-3 shrink-0"
                             >
                               Apply fix
-                            </button>
+                            </Button>
                           </div>
                         </div>
                       )}
 
-                      {/* Reviewer Override / Dismiss Action (Phase 5) */}
+                      {/* Reviewer Override / Dismiss Action */}
                       {(currentRole === 'Reviewer' || currentRole === 'Admin') && selectedItem?.current_state !== 'archived' && (
                         <div className="mt-3 pt-2 flex justify-end">
                           <button
@@ -374,7 +410,7 @@ export const FindingsView: React.FC<{ currentRole: UserRole }> = ({ currentRole 
                               setDismissFindingId(f.finding_id);
                               setDismissReason('');
                             }}
-                            className="text-xs text-slate-500 hover:text-slate-800 underline"
+                            className="text-xs text-slate-500 hover:text-purple-600 dark:hover:text-purple-400 underline font-medium transition"
                           >
                             Dismiss / Log Precedent
                           </button>
@@ -385,16 +421,18 @@ export const FindingsView: React.FC<{ currentRole: UserRole }> = ({ currentRole 
                 })}
               </div>
             )}
-          </div>
+          </GlassCard>
         </div>
       </div>
 
       {/* Dismiss / Living Guidelines Modal */}
       {dismissFindingId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 border border-slate-200">
-            <h3 className="text-lg font-bold text-slate-900">Reviewer Override & Precedent</h3>
-            <p className="text-xs text-slate-500 mt-1">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in">
+          <GlassCard intensity="prominent" className="max-w-md w-full p-6 space-y-4">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+              Reviewer Override &amp; Precedent
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               Phase 5 Living Guidelines: All overrides require an auditable business rationale to be logged.
             </p>
 
@@ -403,25 +441,28 @@ export const FindingsView: React.FC<{ currentRole: UserRole }> = ({ currentRole 
               onChange={(e) => setDismissReason(e.target.value)}
               placeholder="Enter justification for overriding this finding (min 10 characters)..."
               rows={4}
-              className="mt-3 w-full p-3 border border-slate-300 rounded-lg text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="w-full p-3 border border-slate-300 dark:border-slate-700 rounded-xl text-xs sm:text-sm bg-white/90 dark:bg-slate-950/90 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
             />
 
-            <div className="mt-4 flex justify-end space-x-2">
-              <button
+            <div className="flex justify-end space-x-2 pt-2">
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => setDismissFindingId(null)}
-                className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition"
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
                 onClick={handleDismissFinding}
                 disabled={dismissLoading || dismissReason.trim().length < 10}
-                className="px-4 py-2 text-xs font-medium text-white bg-purple-600 hover:bg-purple-700 disabled:opacity-40 rounded-lg transition"
+                isLoading={dismissLoading}
               >
-                {dismissLoading ? 'Logging...' : 'Confirm Override'}
-              </button>
+                Confirm Override
+              </Button>
             </div>
-          </div>
+          </GlassCard>
         </div>
       )}
     </div>

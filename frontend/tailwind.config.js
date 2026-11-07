@@ -1,5 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  darkMode: 'class',
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
@@ -16,6 +17,11 @@ export default {
           700: '#6d28d9',
           900: '#4c1d95',
         }
+      },
+      backdropBlur: {
+        xs: '2px',
+        glass: '16px',
+        glassLg: '24px',
       }
     },
   },

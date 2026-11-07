@@ -10,6 +10,10 @@
     "backend": "uvicorn app.main:app --app-dir backend --host 0.0.0.0 --port 8000 --reload",
     "test:backend": "pytest backend/tests/ -v",
     "eval": "python tests/eval_pack.py --mode cached"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.6.2",
+    "postcss": "^8.5.32",
+    "tailwindcss": "^3.4.19"
   }
 }
-

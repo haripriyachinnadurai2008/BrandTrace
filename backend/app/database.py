@@ -68,6 +68,48 @@ SessionLocal = sessionmaker(
 Base = declarative_base()
 
 
+def ensure_db_connected(max_retries: int = 5, retry_delay: float = 2.0):
+    """
+    Ensures DB connectivity at startup.
+    When hosted on Render/cloud services, PostgreSQL may take a few seconds to spin up.
+    Attempts connection with retries. If remote PostgreSQL is unreachable or connection
+    is refused, gracefully reconfigures the engine to SQLite so the backend never crashes.
+    """
+    global engine, SessionLocal, DATABASE_URL, _is_sqlite
+    import time
+
+    if _is_sqlite:
+        return engine
+
+    connected = False
+    for attempt in range(1, max_retries + 1):
+        try:
+            with engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+            connected = True
+            print(f"[BrandTrace DB] Successfully connected to database on attempt {attempt}.")
+            break
+        except Exception as exc:
+            print(f"[BrandTrace DB] Connection attempt {attempt}/{max_retries} failed: {exc}")
+            if attempt < max_retries:
+                time.sleep(retry_delay)
+
+    if not connected:
+        print(
+            "[BrandTrace DB Fallback] Could not reach remote PostgreSQL after retries. "
+            "Falling back to local SQLite 'sqlite:///./brandtrace.db' to maintain full service availability."
+        )
+        DATABASE_URL = "sqlite:///./brandtrace.db"
+        _is_sqlite = True
+        engine = create_engine(
+            DATABASE_URL,
+            connect_args={"check_same_thread": False},
+        )
+        SessionLocal.configure(bind=engine)
+
+    return engine
+
+
 def apply_audit_triggers(connection):
     """
     Append-only triggers for audit_logs.

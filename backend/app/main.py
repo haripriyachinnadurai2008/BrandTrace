@@ -13,22 +13,36 @@ from app.routers import notifications as notifications_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Startup: create tables + audit triggers + auto-seed if empty."""
+    """Startup: verify DB connectivity, create tables + audit triggers + auto-seed if empty."""
     try:
-        Base.metadata.create_all(bind=engine)
-        with engine.begin() as conn:
+        from app.database import ensure_db_connected
+        active_engine = ensure_db_connected()
+
+        Base.metadata.create_all(bind=active_engine)
+        with active_engine.begin() as conn:
             apply_audit_triggers(conn)
 
         # If database is fresh (e.g. SQLite fallback or new Render PostgreSQL DB),
         # auto-seed demo dataset so the prototype is immediately usable.
         try:
-            from app.models.auth import User
+            from app.models.auth import User, UserRole
             from seed.seed_data import seed_database
             with SessionLocal() as db:
                 if db.query(User).count() == 0:
                     print("[BrandTrace] Empty database detected. Auto-seeding demo dataset...")
-                    seed_database(target_engine=engine)
+                    seed_database(target_engine=active_engine)
                     print("[BrandTrace] Demo dataset seeded successfully.")
+                else:
+                    # Ensure existing demo Agency user has assigned campaign set to Festive Launch
+                    agency_users = db.query(User).filter(User.role == UserRole.AGENCY).all()
+                    updated = False
+                    for au in agency_users:
+                        if not au.assigned_campaign_id:
+                            au.assigned_campaign_id = "camp_festive_launch"
+                            updated = True
+                    if updated:
+                        db.commit()
+                        print("[BrandTrace] Linked existing Agency demo user to camp_festive_launch.")
         except Exception as seed_err:
             print(f"[BrandTrace] Auto-seed note: {seed_err}")
 

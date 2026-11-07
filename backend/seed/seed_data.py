@@ -86,6 +86,7 @@ def seed_database(db: Session = None, target_engine = None) -> dict:
             email="agency@partner.com",
             password_hash=demo_pwd_hash,
             role=UserRole.AGENCY,
+            assigned_campaign_id="camp_festive_launch",
             created_at=datetime(2026, 8, 1, 9, 0, 0, tzinfo=IST)
         )
         db.add_all([admin, creator, reviewer, agency])

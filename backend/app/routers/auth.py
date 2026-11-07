@@ -121,6 +121,7 @@ def login(
                     email=email_clean,
                     password_hash=hash_password("BrandTrace2026!"),
                     role=u_role,
+                    assigned_campaign_id="camp_festive_launch" if u_role == UserRole.AGENCY else None,
                     created_at=datetime.now(IST)
                 )
                 db.add(user)
@@ -135,6 +136,15 @@ def login(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid credentials: user not found"
         )
+
+    # Ensure Agency user has assigned campaign
+    if user.role == UserRole.AGENCY and not user.assigned_campaign_id:
+        try:
+            user.assigned_campaign_id = "camp_festive_launch"
+            db.commit()
+            db.refresh(user)
+        except Exception:
+            db.rollback()
 
     if not verify_password(payload.password, user.password_hash):
         raise HTTPException(

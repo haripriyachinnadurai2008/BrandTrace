@@ -54,7 +54,7 @@ export const LoginPage: React.FC = () => {
       if (msg.includes('Cannot reach backend') || msg.includes('Failed to fetch')) {
         setErrorMsg(`Cannot reach backend server at ${API_BASE_URL}. The free tier may be waking up (please wait 30-60s) or check network connection.`);
       } else if (msg.includes('401') || msg.includes('user not found') || msg.includes('Invalid credentials')) {
-        setErrorMsg('Invalid credentials: user not found or incorrect password. (Use default demo accounts: admin@aura-audio.com with BrandTrace2026!)');
+        setErrorMsg(err.message || 'Invalid credentials: user not found or incorrect password. (Use default demo accounts: admin@aura-audio.com with BrandTrace2026!)');
       } else if (msg.includes('403')) {
         setErrorMsg('Access forbidden: your account does not have sign-in permissions.');
       } else {

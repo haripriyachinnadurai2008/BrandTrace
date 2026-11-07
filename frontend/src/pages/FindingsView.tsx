@@ -38,7 +38,7 @@ export const FindingsView: React.FC<{ currentRole: UserRole }> = ({ currentRole 
 
   useEffect(() => {
     loadItems();
-  }, []);
+  }, [currentRole]);
 
   useEffect(() => {
     if (selectedId) {
@@ -51,12 +51,23 @@ export const FindingsView: React.FC<{ currentRole: UserRole }> = ({ currentRole 
       setLoading(true);
       setError(null);
       const data = await api.getContentItems();
-      setItems(data);
-      if (data.length > 0 && !selectedId) {
-        setSelectedId(data[0].id);
+      const safeData = data || [];
+      setItems(safeData);
+      if (safeData.length > 0) {
+        if (!selectedId || !safeData.some(d => d.id === selectedId)) {
+          setSelectedId(safeData[0].id);
+        }
+      } else {
+        setSelectedId('');
+        setContentDetail(null);
+        setCheckResult(null);
       }
     } catch (err: any) {
       setError(err.message || 'Failed to load content items');
+      setItems([]);
+      setSelectedId('');
+      setContentDetail(null);
+      setCheckResult(null);
     } finally {
       setLoading(false);
     }
@@ -203,20 +214,27 @@ export const FindingsView: React.FC<{ currentRole: UserRole }> = ({ currentRole 
           <select
             value={selectedId}
             onChange={(e) => setSelectedId(e.target.value)}
-            className="text-xs sm:text-sm border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 bg-white/80 dark:bg-slate-950/80 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500 font-medium"
+            disabled={loading || items.length === 0}
+            className="text-xs sm:text-sm border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 bg-white/80 dark:bg-slate-950/80 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500 font-medium min-w-[240px] sm:min-w-[300px] disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            {items.map(it => (
-              <option key={it.id} value={it.id}>
-                {it.title} ({it.channel}) — [{it.current_state}]
-              </option>
-            ))}
+            {loading ? (
+              <option value="" disabled>Loading content pieces...</option>
+            ) : items.length === 0 ? (
+              <option value="" disabled>No content items available for campaign</option>
+            ) : (
+              items.map(it => (
+                <option key={it.id} value={it.id}>
+                  {it.title} ({it.channel}) — [{it.current_state}]
+                </option>
+              ))
+            )}
           </select>
 
           <Button
             variant="primary"
             size="sm"
             onClick={handleRunCheck}
-            disabled={checking || !selectedId}
+            disabled={checking || !selectedId || items.length === 0}
             isLoading={checking}
             leftIcon={<RefreshIcon className="w-4 h-4" />}
           >
@@ -241,12 +259,29 @@ export const FindingsView: React.FC<{ currentRole: UserRole }> = ({ currentRole 
 
       {/* Notifications / Alerts */}
       {error && (
-        <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-200 text-xs flex items-start space-x-2 animate-in fade-in">
-          <AlertCircleIcon className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
-          <div>
-            <span className="font-bold">Action Blocked: </span>
-            {error}
+        <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-200 text-xs flex items-center justify-between gap-3 animate-in fade-in">
+          <div className="flex items-start space-x-2">
+            <AlertCircleIcon className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+            <div>
+              <span className="font-bold">Error: </span>
+              {error}
+            </div>
           </div>
+          <Button variant="secondary" size="sm" onClick={loadItems}>
+            Retry
+          </Button>
+        </div>
+      )}
+
+      {items.length === 0 && !loading && !error && (
+        <div className="p-4 rounded-xl bg-purple-500/10 border border-purple-200 dark:border-purple-800 text-purple-900 dark:text-purple-200 text-xs flex items-center justify-between gap-3 animate-in fade-in">
+          <div className="flex items-center gap-2">
+            <SparklesIcon className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+            <span>No content items available for your assigned campaign.</span>
+          </div>
+          <Button variant="secondary" size="sm" onClick={loadItems} leftIcon={<RefreshIcon className="w-3.5 h-3.5" />}>
+            Refresh
+          </Button>
         </div>
       )}
 

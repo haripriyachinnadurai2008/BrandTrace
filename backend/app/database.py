@@ -5,6 +5,10 @@ from app.config import settings
 
 DATABASE_URL = os.getenv("DATABASE_URL", settings.DATABASE_URL)
 
+# Render and older Heroku postgres URLs start with "postgres://", which SQLAlchemy 1.4+ rejects
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
 # SQLite (tests) needs different pool args than PostgreSQL (production)
 _is_sqlite = DATABASE_URL.startswith("sqlite")
 

@@ -33,7 +33,7 @@ class Settings(BaseSettings):
 
     @property
     def role_switcher_enabled(self) -> bool:
-        return self.ALLOW_ROLE_SWITCHER.lower() == "true" and self.ENVIRONMENT.lower() != "production"
+        return self.ALLOW_ROLE_SWITCHER.lower() == "true"
 
 settings = Settings()
 

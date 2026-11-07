@@ -270,6 +270,17 @@ def test_phase6_approval_gate_blocked_by_open_critical(db_session):
     )
     assert approve_res["status"] == "approved"
     assert approve_res["state"] == "approved"
+
+    # Restore ci_insta_poster to draft state so shared database is not left dirty
+    ci_insta = db.query(ContentItem).filter(ContentItem.id == "ci_insta_poster").first()
+    cv_insta = db.query(ContentVersion).filter(ContentVersion.content_id == "ci_insta_poster").first()
+    if ci_insta:
+        ci_insta.current_state = "draft"
+    if cv_insta:
+        cv_insta.state = "draft"
+        cv_insta.approved_at = None
+    db.commit()
+
     print("\n--- PHASE 6 EXIT TEST PASSED ---")
     print("Open Critical finding successfully blocked approval with 422; approved after resolution.")
 

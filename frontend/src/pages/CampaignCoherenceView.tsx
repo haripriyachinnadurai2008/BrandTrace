@@ -16,6 +16,12 @@ export const CampaignCoherenceView: React.FC<{ currentRole: UserRole }> = () => 
     loadCampaigns();
   }, []);
 
+  useEffect(() => {
+    if (selectedCampaignId) {
+      handleCheckCoherence(selectedCampaignId);
+    }
+  }, [selectedCampaignId]);
+
   const loadCampaigns = async () => {
     try {
       setLoading(true);
@@ -32,12 +38,13 @@ export const CampaignCoherenceView: React.FC<{ currentRole: UserRole }> = () => 
     }
   };
 
-  const handleCheckCoherence = async () => {
-    if (!selectedCampaignId) return;
+  const handleCheckCoherence = async (targetId?: string) => {
+    const cid = targetId || selectedCampaignId;
+    if (!cid) return;
     try {
       setChecking(true);
       setError(null);
-      const res = await api.checkCampaignCoherence(selectedCampaignId);
+      const res = await api.checkCampaignCoherence(cid);
       setCoherenceFindings(res.findings || []);
       setLastCheckStats(
         res.has_contradictions
@@ -84,7 +91,7 @@ export const CampaignCoherenceView: React.FC<{ currentRole: UserRole }> = () => 
           </select>
 
           <button
-            onClick={handleCheckCoherence}
+            onClick={() => handleCheckCoherence()}
             disabled={checking || !selectedCampaignId}
             className="inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg text-white bg-purple-600 hover:bg-purple-700 disabled:opacity-50 transition shadow-sm"
           >

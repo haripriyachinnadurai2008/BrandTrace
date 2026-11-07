@@ -13,7 +13,7 @@ from app.models.claims import ExtractedClaim, ClaimFactLink
 from app.auth.guards import get_current_user, require_roles
 from app.schemas.facts import FactVersionCreate, FactVersionResponse, BrandFactResponse, FactImpactResponse, ImpactItemResponse
 from app.services.impact_engine import ImpactEngine, ensure_ist
-from app.services.normalizer import IST
+from app.services.normalizer import IST, DeterministicNormalizer
 
 router = APIRouter(prefix="/facts", tags=["Brand Facts"])
 
@@ -270,7 +270,30 @@ def create_fact_version(
     downstream content, invalidates approvals, creates notifications, and records
     audit log entry. Rolls back entirely on any error.
     Enforces Admin-only access.
+    Rejects no-op updates where proposed value equals current active value with HTTP 422.
     """
+    fact = db.query(BrandFact).filter(BrandFact.id == fact_id).first()
+    if not fact:
+        raise HTTPException(status_code=404, detail=f"Brand fact '{fact_id}' not found")
+
+    current_version = (
+        db.query(FactVersion)
+        .filter(FactVersion.fact_id == fact_id)
+        .order_by(desc(FactVersion.version_no))
+        .first()
+    )
+    if current_version:
+        normalized_new = DeterministicNormalizer.normalize_any(payload.value).normalised_str
+        normalized_cur = (current_version.normalised_value or "").strip().lower()
+        if (
+            payload.value.strip().lower() == current_version.value.strip().lower()
+            or (normalized_new and normalized_new.strip().lower() == normalized_cur)
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"No-op version rejected: Proposed value '{payload.value}' is identical to the current active value '{current_version.value}'."
+            )
+
     try:
         # ImpactEngine operates within a transaction and commits
         result = ImpactEngine.execute_fact_change(
@@ -287,6 +310,14 @@ def create_fact_version(
         )
         db.commit()
         return result
+    except HTTPException:
+        db.rollback()
+        raise
+    except ValueError as e:
+        db.rollback()
+        if "No-op" in str(e):
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
         db.rollback()
         raise HTTPException(

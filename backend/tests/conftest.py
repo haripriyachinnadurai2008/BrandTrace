@@ -142,7 +142,11 @@ def _seed(db):
         id="src_price_list_sep", org_id="org_aura_audio",
         title="Price List Sep", file_name="Price_List_Sep.pdf", file_type="pdf",
         excerpt="X1 Pro: Rs 4,999", created_at=datetime(2026, 8, 25, 10, 0, 0, tzinfo=IST))
-    db.add(source)
+    source_dec = EvidenceSource(
+        id="src_price_list_dec", org_id="org_aura_audio",
+        title="Price List Dec", file_name="Price_List_Dec.pdf", file_type="pdf",
+        excerpt="X1 Pro: Rs 5,499", created_at=datetime(2026, 11, 20, 10, 0, 0, tzinfo=IST))
+    db.add_all([source, source_dec])
 
     fact = BrandFact(id="F001", org_id="org_aura_audio", name="X1 Pro price",
                      category="Pricing", created_at=datetime(2026, 8, 25, 10, 30, 0, tzinfo=IST))
@@ -172,7 +176,7 @@ def _seed(db):
     # 5 content pieces — (id, title, channel, state, text, pub_at, appr_at, arch_at, url)
     pieces = [
         ("ci_linkedin_launch", "LinkedIn Launch Post",    "linkedin",  "approved",
-         "Experience sound. X1 Pro at Rs 4,999.",
+         "Experience sound. X1 Pro at Rs 5,499. Guaranteed 100% satisfaction.",
          None,
          datetime(2026, 10, 15, 10, 0, 0, tzinfo=IST), None, None),
 
@@ -257,6 +261,23 @@ def _seed(db):
                 span_start=off_span, span_end=off_span + 7,
                 extraction_confidence=0.96, masked_token="[PCT_1]",
                 created_at=datetime(2026, 9, 1, 0, 0, 0, tzinfo=IST)))
+
+    from app.models.governance import Rule, Precedent
+    r1 = Rule(id="R001", name="Pricing Accuracy Rule", severity="Critical", rule_type="governance", created_at=datetime(2026, 8, 1, 9, 0, 0, tzinfo=IST))
+    r2 = Rule(id="R002", name="Campaign Offer Coherence Rule", severity="High", rule_type="campaign", created_at=datetime(2026, 8, 1, 9, 0, 0, tzinfo=IST))
+    db.add_all([r1, r2])
+
+    p1 = Precedent(
+        id="prec_festive_override_01", rule_id="R001", reviewer_id="usr_reviewer_devin",
+        reason="Reviewed with executive marketing team: 30-day introductory price lock exception approved for initial launch window.",
+        finding_summary="Product price claim 'Rs 4,999' on LinkedIn Launch Post",
+        resolution_action="override", timestamp=datetime(2026, 10, 15, 11, 0, 0, tzinfo=IST))
+    p2 = Precedent(
+        id="prec_festive_coherence_02", rule_id="R002", reviewer_id="usr_reviewer_devin",
+        reason="Promotional discount '20% off' cross-verified with Festive Launch campaign brief and authorized by CMO.",
+        finding_summary="Campaign offer claim '20% off' on Festive Email Campaign",
+        resolution_action="accepted", timestamp=datetime(2026, 10, 20, 15, 0, 0, tzinfo=IST))
+    db.add_all([p1, p2])
 
     db.add(AuditLog(
         id="audit_initial_seed", entity_type="brand_fact", entity_id="F001",

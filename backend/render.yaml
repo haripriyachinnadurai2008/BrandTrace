@@ -17,9 +17,9 @@ services:
       - key: ENVIRONMENT
         value: production
       - key: ALLOW_ROLE_SWITCHER
-        value: "false"       # disables JWT dev role-picker in prod
+        value: "true"
       - key: CORS_ORIGINS
-        sync: false          # set to Vercel frontend URL after first deploy
+        value: "*"
       - key: PORT
         value: "8000"
 

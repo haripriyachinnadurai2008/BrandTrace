@@ -32,7 +32,7 @@
   },
 
   "linkedin_launch": {
-    "_description": "LinkedIn Launch Post — X1 Pro ₹4,999",
+    "_description": "LinkedIn Launch Post — X1 Pro price + Guaranteed 100% satisfaction",
     "result": [
       {
         "type": "price",
@@ -40,6 +40,13 @@
         "attribute": "price",
         "value_ref": "[PRICE_1]",
         "confidence": 0.98
+      },
+      {
+        "type": "claim",
+        "subject": "satisfaction guarantee",
+        "attribute": "guarantee",
+        "value_ref": null,
+        "confidence": 0.85
       }
     ]
   },

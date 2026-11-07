@@ -222,19 +222,52 @@ def run_check(
             match = match_claim(db, effective_subject, entity)
 
         # Load fact version
+        # For archived content: match against the historical fact version valid at its
+        # published_at / archived_at date, NOT the current active version.
+        is_archived = (cv.state or "").lower() == "archived" or (ci.current_state or "").lower() == "archived"
+        effective_time = cv.archived_at or cv.published_at or cv.created_at
+
         fv: Optional[FactVersion] = None
-        if match.fact_version_id:
-            fv = db.query(FactVersion).filter(
-                FactVersion.version_id == match.fact_version_id
-            ).first()
-        elif match.fact_id:
-            # Get latest version even if matched by trgm without version_id
+        if is_archived and effective_time and match.fact_id:
+            # Query version active at historical archive/publish time
             fv = (
                 db.query(FactVersion)
-                .filter(FactVersion.fact_id == match.fact_id)
+                .filter(
+                    FactVersion.fact_id == match.fact_id,
+                    FactVersion.valid_from <= effective_time,
+                    (FactVersion.valid_to == None) | (FactVersion.valid_to >= effective_time)
+                )
                 .order_by(FactVersion.version_no.desc())
                 .first()
             )
+            if not fv:
+                fv = (
+                    db.query(FactVersion)
+                    .filter(
+                        FactVersion.fact_id == match.fact_id,
+                        FactVersion.valid_from <= effective_time
+                    )
+                    .order_by(FactVersion.version_no.desc())
+                    .first()
+                )
+
+        if fv is None:
+            if match.fact_version_id:
+                fv = db.query(FactVersion).filter(
+                    FactVersion.version_id == match.fact_version_id
+                ).first()
+            elif match.fact_id:
+                # Latest active version for live/draft/approved content
+                fv = (
+                    db.query(FactVersion)
+                    .filter(FactVersion.fact_id == match.fact_id)
+                    .order_by(FactVersion.version_no.desc())
+                    .first()
+                )
+
+        # Use the matched version's actual evidence source and page
+        cur_source_id = fv.source_id if fv and fv.source_id else source_id
+        cur_source_page = fv.source_page if fv and fv.source_page else source_page
 
         # Persist ClaimFactLink
         link_status = "unverified"
@@ -256,9 +289,9 @@ def run_check(
             entity=entity,
             match=match,
             fact_version=fv,
-            content_state=cv.state,
-            source_id=source_id,
-            source_page=source_page,
+            content_state="archived" if is_archived else (cv.state or "draft"),
+            source_id=cur_source_id,
+            source_page=cur_source_page,
             claim_type=claim_type,
             campaign_products=campaign_products,
         )

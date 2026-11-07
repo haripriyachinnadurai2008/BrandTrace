@@ -1,6 +1,6 @@
 import hashlib
 from datetime import datetime
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker
 
 from app.config import IST
 from app.database import engine, SessionLocal, Base, apply_audit_triggers
@@ -35,7 +35,7 @@ def seed_database(db: Session = None, target_engine = None) -> dict:
         apply_audit_triggers(conn)
 
     if db is None:
-        db = SessionLocal()
+        db = sessionmaker(bind=eng)()
         should_close = True
 
     try:
@@ -85,7 +85,7 @@ def seed_database(db: Session = None, target_engine = None) -> dict:
         db.add_all([admin, creator, reviewer, agency])
         db.flush()
 
-        # 3. Evidence Source
+        # 3. Evidence Sources (Sep and Dec price lists)
         source = EvidenceSource(
             id="src_price_list_sep",
             org_id=org.id,
@@ -97,7 +97,18 @@ def seed_database(db: Session = None, target_engine = None) -> dict:
             excerpt="X1 Pro Flagship Wireless Earbuds: MRP ₹4,999 incl. taxes. Effective 1 Sep 2026.",
             created_at=datetime(2026, 8, 25, 10, 0, 0, tzinfo=IST)
         )
-        db.add(source)
+        source_dec = EvidenceSource(
+            id="src_price_list_dec",
+            org_id=org.id,
+            title="Official Price List December Revision 2026",
+            file_name="Price_List_Dec.pdf",
+            file_type="pdf",
+            file_path="uploads/Price_List_Dec.pdf",
+            file_hash="hash_price_list_dec_2026",
+            excerpt="X1 Pro Flagship Wireless Earbuds: MRP ₹5,499 incl. taxes. Effective 1 Dec 2026.",
+            created_at=datetime(2026, 11, 20, 10, 0, 0, tzinfo=IST)
+        )
+        db.add_all([source, source_dec])
         db.flush()
 
         # 4. Brand Fact F001 & Version v1 (₹4,999 valid 1 Sep to 30 Nov 2026)
@@ -184,7 +195,7 @@ def seed_database(db: Session = None, target_engine = None) -> dict:
             owner_id=creator.id,
             created_at=datetime(2026, 10, 10, 10, 0, 0, tzinfo=IST)
         )
-        text_linkedin = "Experience sound redefined. The all-new X1 Pro is officially available starting at ₹4,999 across all retail outlets. Grab yours today!"
+        text_linkedin = "Experience sound redefined. The all-new X1 Pro is officially available starting at ₹5,499 across all retail outlets. Guaranteed 100% satisfaction. Grab yours today!"
         cv_linkedin = ContentVersion(
             version_id="cv_linkedin_v1",
             content_id=ci_linkedin.id,
@@ -198,14 +209,14 @@ def seed_database(db: Session = None, target_engine = None) -> dict:
         claim_linkedin = ExtractedClaim(
             id="claim_linkedin_1",
             content_version_id=cv_linkedin.version_id,
-            raw_span_text="₹4,999",
-            normalised_value="4999",
+            raw_span_text="₹5,499",
+            normalised_value="5499",
             value_type="price",
             is_approximate=False,
             subject="X1 Pro price",
             attribute="price",
-            span_start=text_linkedin.find("₹4,999"),
-            span_end=text_linkedin.find("₹4,999") + len("₹4,999"),
+            span_start=text_linkedin.find("₹5,499"),
+            span_end=text_linkedin.find("₹5,499") + len("₹5,499"),
             extraction_confidence=0.98,
             masked_token="[PRICE_1]",
             created_at=datetime(2026, 10, 10, 10, 0, 0, tzinfo=IST)
@@ -447,7 +458,30 @@ def seed_database(db: Session = None, target_engine = None) -> dict:
         )
         db.add_all([ci_webinar, cv_webinar, claim_webinar, link_webinar])
 
-        # 8. Initial Audit Log
+        # 8. Seed at least 2 Example Precedents (Living Guidelines Lite)
+        prec_1 = Precedent(
+            id="prec_festive_override_01",
+            rule_id=rule_pricing.id,
+            finding_id=None,
+            reviewer_id=reviewer.id,
+            reason="Reviewed with executive marketing team: 30-day introductory price lock exception approved for initial launch window.",
+            finding_summary="Product price claim '₹4,999' on LinkedIn Launch Post",
+            resolution_action="override",
+            timestamp=datetime(2026, 10, 15, 11, 0, 0, tzinfo=IST)
+        )
+        prec_2 = Precedent(
+            id="prec_festive_coherence_02",
+            rule_id=rule_campaign.id,
+            finding_id=None,
+            reviewer_id=reviewer.id,
+            reason="Promotional discount '20% off' cross-verified with Festive Launch campaign brief and authorized by CMO.",
+            finding_summary="Campaign offer claim '20% off' on Festive Email Campaign",
+            resolution_action="accepted",
+            timestamp=datetime(2026, 10, 20, 15, 0, 0, tzinfo=IST)
+        )
+        db.add_all([prec_1, prec_2])
+
+        # 9. Initial Audit Log
         audit = AuditLog(
             id="audit_initial_seed",
             entity_type="brand_fact",

@@ -62,15 +62,15 @@ flowchart TD
 
 | Scope Area | Specification Requirement | Built Status | Verification / Exit Test |
 |---|---|---|---|
-| **Phase 1** | 18 tables, IST midnight dates, fact versioning | **COMPLETE** | `test_phase1_f001_v1_created` & `test_phase1_f001_v2_effective_midnight_ist` **PASSED** |
-| **Phase 2** | Pre-tokenization (`[PRICE_1]`), deterministic normalizer, 3-tier cascade, unverified-not-false | **COMPLETE** | `test_phase2_exit_test_extraction_and_verification` **PASSED** (Price = Critical Contradicted, Guarantee = Medium Unverified) |
-| **Phase 3** | Change-impact atomic engine: 2 re-opened, 1 stale, 1 red alert, 1 left alone | **COMPLETE** | `test_phase3_five_item_impact_exact` & `test_forced_failure_atomic_rollback` **PASSED** |
-| **Phase 4** | Campaign Coherence Lite: email 20% vs poster 25% flagged as High conflict | **COMPLETE** | `test_phase4_campaign_coherence_lite` **PASSED** |
-| **Phase 5** | Living Guidelines Lite: reviewer override logged to `precedents` with reason | **COMPLETE** | `test_phase5_living_guidelines_precedent_logging` **PASSED** |
-| **Phase 6** | Role-based permission matrix, approval gate blocked by Critical findings, audit logs | **COMPLETE** | `test_phase6_approval_gate_blocked_by_open_critical` & `test_role_guards.py` (20/20) **PASSED** |
-| **Phase 7** | React + Vite + Tailwind frontend: 6 dedicated screens, role switcher, span highlights, fix options | **COMPLETE** | Vite production build generated in 1.39s with 0 errors |
+| **Phase 1** | 18 tables, IST midnight dates, fact versioning, rejection of no-op versions (HTTP 422) | **COMPLETE** | `test_phase1_f001_v1_created`, `test_phase1_f001_v2_effective_midnight_ist`, `test_noop_fact_version.py` **PASSED** |
+| **Phase 2** | Pre-tokenization (`[PRICE_1]`), deterministic normalizer, 3-tier cascade, unverified-not-false, Sec 6.8 multi-product routing | **COMPLETE** | `test_phase2_exit_test_extraction_and_verification` **PASSED** (Price = Critical Contradicted, Guarantee = Medium Unverified) |
+| **Phase 3** | Change-impact atomic engine: 2 re-review, 1 stale, 1 red alert, 1 left alone | **COMPLETE** | `test_phase3_five_item_impact_exact` & `test_forced_failure_atomic_rollback` **PASSED** (clean seed verified 2/1/1/1) |
+| **Phase 4** | Campaign Coherence Lite: email 20% vs poster 25% flagged as High conflict; auto-analyzes on campaign select | **COMPLETE** | `test_phase4_campaign_coherence_lite` **PASSED** |
+| **Phase 5** | Living Guidelines Lite: reviewer override logged to `precedents` with reason; 2 seeded precedents via `/precedents` | **COMPLETE** | `test_phase5_living_guidelines_precedent_logging` & `test_precedents.py` **PASSED** |
+| **Phase 6** | Role-based permission matrix, approval gate blocked by Critical findings, Agency campaign scoping | **COMPLETE** | `test_phase6_approval_gate_blocked_by_open_critical`, `test_role_guards.py` (20/20), `test_agency_and_derived_status.py` **PASSED** |
+| **Phase 7** | React + Vite + Tailwind frontend: 6 dedicated screens, role switcher, real evidence sources dropdown (`/sources`), archived content historical lookup | **COMPLETE** | Vite production build passing with 0 errors; `test_archived_content_regression.py` **PASSED** |
 | **Audit** | Append-only audit logs enforced via DB trigger | **COMPLETE** | `test_audit_trigger.py` (UPDATE & DELETE strictly blocked) **PASSED** |
-| **Test Pack** | 30-item test pack (10 dev, 20 held-out) with confusion matrix | **COMPLETE** | `tests/eval_pack.py` **PASSED** (30/30 correct, 100% accuracy) |
+| **Test Pack** | 30-item test pack (10 dev, 20 held-out) with confusion matrix and adversarial cases | **COMPLETE** | `tests/eval_pack.py` **PASSED** (30/30 correct, 100% accuracy) |
 
 ---
 

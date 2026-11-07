@@ -15,6 +15,7 @@ set PG_DATA=C:\Users\Hari Priya\.gemini\antigravity\scratch\pgsql\data
 echo [1/5] Checking PostgreSQL status on port 5432...
 netstat -ano | findstr ":5432 " | findstr "LISTENING" >nul 2>&1
 if %errorlevel% neq 0 (
+    if exist "%PG_DATA%\postmaster.pid" del /f /q "%PG_DATA%\postmaster.pid" >nul 2>&1
     echo       Starting local PostgreSQL 16 server...
     "%PG_BIN%\pg_ctl.exe" -D "%PG_DATA%" -l "%ROOT_DIR%postgres_server.log" start
     timeout /t 3 /nobreak >nul
@@ -27,7 +28,7 @@ echo [2/5] Checking environment configuration...
 if not exist "%ROOT_DIR%backend\.env" (
     echo       Creating backend\.env...
     (
-        echo DATABASE_URL=postgresql+psycopg2://brandtrace@127.0.0.1:5432/brandtrace_db
+        echo DATABASE_URL=postgresql+psycopg2://brandtrace:brandtrace@127.0.0.1:5432/brandtrace_db
         echo SECRET_KEY=brandtrace-local-development-secret-key-2026
         echo GROQ_API_KEY=""
         echo ENVIRONMENT=development
@@ -74,3 +75,4 @@ echo.
 timeout /t 3 /nobreak >nul
 start http://localhost:5173
 pause
+

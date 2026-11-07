@@ -25,6 +25,8 @@ from typing import Optional
 from app.services.matcher import MatchResult
 from app.services.normalizer import NormalizedEntity
 from app.models.facts import FactVersion
+from datetime import datetime
+from app.config import IST
 
 
 @dataclass
@@ -60,18 +62,53 @@ def verify(
 
     state = content_state.lower().strip()
 
+    # ── Archived content check: published and archived before new valid_from ──
+    if state == "archived" and fact_version:
+        fact_norm = fact_version.normalised_value.strip()
+        claim_norm = entity.normalised_str.strip()
+        if fact_norm == claim_norm:
+            return VerificationResult(
+                status="Verified",
+                risk_tier="Info",
+                reason="Valid when published, no action needed.",
+                source_reference=source_ref,
+                extraction_confidence=1.0,
+                fix_options=None,
+            )
+
     # ── Stale check: pinned version superseded ────────────────────────────────
-    if match.fact_version_id and fact_version and fact_version.valid_to is not None:
-        return VerificationResult(
-            status="Stale",
-            risk_tier="Medium" if state in ("draft",) else "High",
-            reason=(
-                f"Pinned fact version has been superseded. "
-                f"The current approved value differs."
-            ),
-            source_reference=source_ref,
-            extraction_confidence=entity.extraction_confidence if hasattr(entity, "extraction_confidence") else 1.0,
+    # A pinned version is stale if it has been superseded or expired,
+    # and the claim matches the superseded pinned value. If the values differ, it is Contradicted.
+    if match.fact_version_id and fact_version:
+        valid_to_dt = fact_version.valid_to
+        if valid_to_dt and valid_to_dt.tzinfo is None:
+            valid_to_dt = valid_to_dt.replace(tzinfo=IST)
+        is_superseded = fact_version.status == "superseded" or (
+            valid_to_dt is not None and valid_to_dt < datetime.now(IST)
         )
+        fact_norm = (fact_version.normalised_value or "").strip()
+        claim_norm = entity.normalised_str.strip()
+        if is_superseded and fact_norm == claim_norm:
+            if state == "archived":
+                return VerificationResult(
+                    status="Verified",
+                    risk_tier="Info",
+                    reason="Valid when published, no action needed.",
+                    source_reference=source_ref,
+                    extraction_confidence=1.0,
+                    fix_options=None,
+                )
+            return VerificationResult(
+                status="Stale",
+                risk_tier="Medium" if state in ("draft",) else "High",
+                reason=(
+                    f"Pinned fact version has been superseded. "
+                    f"The current approved value differs."
+                ),
+                source_reference=source_ref,
+                extraction_confidence=entity.extraction_confidence if hasattr(entity, "extraction_confidence") else 1.0,
+                fix_options=_build_fix_options(entity, fact_version),
+            )
 
     # ── Unverified: no match ──────────────────────────────────────────────────
     if match.method == "human" or match.fact_id is None:

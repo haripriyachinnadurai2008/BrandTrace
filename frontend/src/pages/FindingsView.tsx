@@ -73,7 +73,7 @@ export const FindingsView: React.FC<{ currentRole: UserRole }> = ({ currentRole 
           finding_id: f.id,
           claim_id: f.claim_id,
           risk_tier: f.risk_tier,
-          status: f.status === 'open' ? (f.risk_tier === 'Critical' ? 'Contradicted' : 'Unverified') : f.status,
+          status: f.status === 'open' ? (f.risk_tier === 'Critical' ? 'Contradicted' : (f.risk_tier === 'Info' ? 'Verified' : 'Unverified')) : f.status,
           reason: f.reason,
           source_reference: f.source_reference,
           extraction_confidence: f.extraction_confidence,
@@ -202,7 +202,7 @@ export const FindingsView: React.FC<{ currentRole: UserRole }> = ({ currentRole 
             {checking ? 'Checking...' : 'Run Verification'}
           </button>
 
-          {(currentRole === 'Reviewer' || currentRole === 'Admin') && (
+          {(currentRole === 'Reviewer' || currentRole === 'Admin') && selectedItem?.current_state !== 'archived' && (
             <button
               onClick={handleApprove}
               disabled={approving || hasCriticalOrHigh || selectedItem?.current_state === 'approved'}
@@ -333,7 +333,7 @@ export const FindingsView: React.FC<{ currentRole: UserRole }> = ({ currentRole 
                       </div>
 
                       {/* Fix Options (Professional, Marketing, Minimal) */}
-                      {f.fix_options && (
+                      {f.fix_options && selectedItem?.current_state !== 'archived' && (
                         <div className="mt-3 pt-3 border-t border-slate-200/60">
                           <div className="text-xs font-semibold text-slate-600 mb-1.5 flex items-center justify-between">
                             <span>Re-verified Fix Recommendations:</span>
@@ -367,7 +367,7 @@ export const FindingsView: React.FC<{ currentRole: UserRole }> = ({ currentRole 
                       )}
 
                       {/* Reviewer Override / Dismiss Action (Phase 5) */}
-                      {(currentRole === 'Reviewer' || currentRole === 'Admin') && (
+                      {(currentRole === 'Reviewer' || currentRole === 'Admin') && selectedItem?.current_state !== 'archived' && (
                         <div className="mt-3 pt-2 flex justify-end">
                           <button
                             onClick={() => {

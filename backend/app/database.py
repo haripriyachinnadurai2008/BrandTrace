@@ -5,6 +5,28 @@ from app.config import settings
 
 DATABASE_URL = os.getenv("DATABASE_URL", settings.DATABASE_URL)
 
+# Cloud providers (e.g. Render, Heroku, Supabase) often supply "postgres://" or generic "postgresql://".
+# Normalize to "postgresql+psycopg2://" to ensure SQLAlchemy uses the installed psycopg2 driver.
+if DATABASE_URL:
+    if DATABASE_URL.startswith("postgres://"):
+        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+psycopg2://", 1)
+    elif DATABASE_URL.startswith("postgresql://") and not DATABASE_URL.startswith("postgresql+"):
+        DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://", 1)
+
+# Cloud auto-fallback: If running in a cloud deployment (Render or production) but DATABASE_URL points to
+# localhost/127.0.0.1 (not yet configured with remote PostgreSQL), Render instances do not run PostgreSQL on localhost.
+# To prevent crash loops, fall back to SQLite unless a remote PostgreSQL URL is configured.
+is_cloud = os.getenv("RENDER") == "true" or os.getenv("ENVIRONMENT") == "production"
+is_localhost_db = any(host in (DATABASE_URL or "") for host in ("127.0.0.1", "localhost"))
+if is_cloud and is_localhost_db and not os.getenv("FORCE_POSTGRES_LOCAL"):
+    print(
+        "[BrandTrace Notice] DATABASE_URL is pointing to localhost inside a cloud container. "
+        "Render web services do not run PostgreSQL on localhost. "
+        "Falling back to local SQLite 'sqlite:///./brandtrace.db'. "
+        "To connect to Render PostgreSQL, set DATABASE_URL in Render Dashboard -> Environment to your Internal Database URL."
+    )
+    DATABASE_URL = "sqlite:///./brandtrace.db"
+
 # SQLite (tests) needs different pool args than PostgreSQL (production)
 _is_sqlite = DATABASE_URL.startswith("sqlite")
 

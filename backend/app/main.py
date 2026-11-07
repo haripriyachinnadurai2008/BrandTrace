@@ -6,17 +6,35 @@ from sqlalchemy import text
 
 from app.config import settings, IST
 from app.database import engine, Base, apply_audit_triggers, get_db
-from app.routers import auth, facts, content, audit, campaigns, precedents
+from app.routers import auth, facts, content, audit, campaigns, precedents, sources
 from app.routers import findings as findings_router
 from app.routers import notifications as notifications_router
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Startup: create tables + audit triggers."""
-    Base.metadata.create_all(bind=engine)
-    with engine.begin() as conn:
-        apply_audit_triggers(conn)
+    """Startup: create tables + audit triggers + auto-seed if empty."""
+    try:
+        Base.metadata.create_all(bind=engine)
+        with engine.begin() as conn:
+            apply_audit_triggers(conn)
+
+        # If database is fresh (e.g. SQLite fallback or new Render PostgreSQL DB),
+        # auto-seed demo dataset so the prototype is immediately usable.
+        try:
+            from app.models.auth import User
+            from seed.seed_data import seed_database
+            with SessionLocal() as db:
+                if db.query(User).count() == 0:
+                    print("[BrandTrace] Empty database detected. Auto-seeding demo dataset...")
+                    seed_database(target_engine=engine)
+                    print("[BrandTrace] Demo dataset seeded successfully.")
+        except Exception as seed_err:
+            print(f"[BrandTrace] Auto-seed note: {seed_err}")
+
+    except Exception as exc:
+        print(f"[BrandTrace Startup Warning] Database initialization failed: {exc}")
+        print("Uvicorn will continue serving. Verify DATABASE_URL or database network connectivity.")
     yield
 
 
@@ -49,6 +67,7 @@ app.include_router(notifications_router.router)
 app.include_router(audit.router)
 app.include_router(campaigns.router)
 app.include_router(precedents.router)
+app.include_router(sources.router)
 
 
 # ── Health ───────────────────────────────────────────────────────────────────

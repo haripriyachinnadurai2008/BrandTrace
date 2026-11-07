@@ -76,6 +76,17 @@ class ImpactEngine:
         normalized_entity = DeterministicNormalizer.normalize_any(new_value)
         normalised_val_str = normalized_entity.normalised_str
 
+        # Reject no-op version updates where value matches current active value
+        if current_version:
+            cur_norm = (current_version.normalised_value or "").strip().lower()
+            if (
+                new_value.strip().lower() == current_version.value.strip().lower()
+                or (normalised_val_str and normalised_val_str.strip().lower() == cur_norm)
+            ):
+                raise ValueError(
+                    f"No-op version rejected: Proposed value '{new_value}' is identical to current active value '{current_version.value}'."
+                )
+
         # 1. Close old valid_to
         if current_version:
             current_version.valid_to = valid_from

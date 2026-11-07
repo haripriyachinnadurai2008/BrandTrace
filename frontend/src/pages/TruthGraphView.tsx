@@ -13,9 +13,10 @@ export const TruthGraphView: React.FC<{ currentRole: UserRole }> = ({ currentRol
   // New version form state
   const [newValue, setNewValue] = useState<string>('₹5,499');
   const [validFrom, setValidFrom] = useState<string>('2026-12-01');
-  const [sourceId, setSourceId] = useState<string>('src_price_list_sep');
+  const [sourceId, setSourceId] = useState<string>('src_price_list_dec');
   const [sourcePage, setSourcePage] = useState<number>(3);
   const [changeReason, setChangeReason] = useState<string>('Annual price revision for Festive Q4');
+  const [evidenceSources, setEvidenceSources] = useState<any[]>([]);
 
   // Preview Modal state
   const [previewOpen, setPreviewOpen] = useState<boolean>(false);
@@ -31,10 +32,23 @@ export const TruthGraphView: React.FC<{ currentRole: UserRole }> = ({ currentRol
     try {
       setLoading(true);
       setError(null);
-      const data = await api.getFacts();
-      setFacts(data);
-      if (data.length > 0 && !selectedFact) {
-        setSelectedFact(data[0]);
+      const [factsData, sourcesData] = await Promise.all([
+        api.getFacts(),
+        api.getEvidenceSources().catch(() => [])
+      ]);
+      setFacts(factsData);
+      setEvidenceSources(sourcesData);
+      if (sourcesData && sourcesData.length > 0) {
+        const decSrc = sourcesData.find((s: any) => s.id === 'src_price_list_dec');
+        if (decSrc) {
+          setSourceId('src_price_list_dec');
+          setSourcePage(3);
+        } else {
+          setSourceId(sourcesData[0].id);
+        }
+      }
+      if (factsData.length > 0 && !selectedFact) {
+        setSelectedFact(factsData[0]);
       }
     } catch (err: any) {
       setError(err.message || 'Failed to load brand facts');
@@ -247,14 +261,34 @@ export const TruthGraphView: React.FC<{ currentRole: UserRole }> = ({ currentRol
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Evidence Source ID
+                      Evidence Source Document
                     </label>
-                    <input
-                      type="text"
+                    <select
                       value={sourceId}
-                      onChange={(e) => setSourceId(e.target.value)}
-                      className="w-full p-2.5 border border-slate-300 rounded-lg text-slate-900 text-sm font-mono focus:ring-2 focus:ring-purple-500"
-                    />
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setSourceId(val);
+                        if (val === 'src_price_list_dec') {
+                          setSourcePage(3);
+                        } else if (val === 'src_price_list_sep') {
+                          setSourcePage(2);
+                        }
+                      }}
+                      className="w-full p-2.5 border border-slate-300 rounded-lg text-slate-900 text-sm focus:ring-2 focus:ring-purple-500 bg-white"
+                    >
+                      {evidenceSources.length > 0 ? (
+                        evidenceSources.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.file_name} ({s.id})
+                          </option>
+                        ))
+                      ) : (
+                        <>
+                          <option value="src_price_list_dec">Price_List_Dec.pdf (src_price_list_dec)</option>
+                          <option value="src_price_list_sep">Price_List_Sep.pdf (src_price_list_sep)</option>
+                        </>
+                      )}
+                    </select>
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">

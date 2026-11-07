@@ -4,7 +4,7 @@ from sqlalchemy import desc
 from typing import List
 
 from app.database import get_db
-from app.models.auth import User
+from app.models.auth import User, UserRole
 from app.models.governance import Precedent
 from app.auth.guards import get_current_user
 from app.schemas.governance import PrecedentResponse

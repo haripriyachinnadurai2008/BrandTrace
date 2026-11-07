@@ -119,6 +119,10 @@ class ApiClient {
     return this.request<any[]>('/facts');
   }
 
+  getEvidenceSources() {
+    return this.request<any[]>('/sources');
+  }
+
   getFactImpact(factId: string, newValue: string, validFrom?: string) {
     let q = `?new_value=${encodeURIComponent(newValue)}`;
     if (validFrom) q += `&valid_from=${encodeURIComponent(validFrom)}`;

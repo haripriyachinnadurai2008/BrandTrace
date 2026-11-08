@@ -109,13 +109,23 @@ class ApiClient {
     headers.set('X-User-Role', this.currentRole);
     headers.set('X-User-Id', this.currentUserId);
 
+    const controller = new AbortController();
+    const timeoutMs = (options.method === 'POST' && endpoint.includes('/check')) ? 30000 : 15000;
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
     let response: Response;
     try {
-      response = await fetch(url, { ...options, headers });
+      response = await fetch(url, { ...options, headers, signal: controller.signal });
     } catch (networkErr: any) {
+      if (networkErr.name === 'AbortError') {
+        const timeoutMsg = `Request timed out after ${timeoutMs / 1000}s while contacting ${url}. If using the free cloud tier, the server may be waking up (takes ~30-50s). Please retry.`;
+        throw new Error(timeoutMsg);
+      }
       const reachMsg = `Cannot reach backend at ${url}. Check network connection, CORS settings, or server status.`;
       console.warn(`[API Network Error] ${options.method || 'GET'} ${endpoint}:`, reachMsg, networkErr);
       throw new Error(reachMsg);
+    } finally {
+      clearTimeout(timeoutId);
     }
 
     if (!response.ok) {

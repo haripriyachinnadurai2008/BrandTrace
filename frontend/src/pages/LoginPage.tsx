@@ -26,6 +26,7 @@ export const LoginPage: React.FC = () => {
   const [password, setPassword] = useState<string>('BrandTrace2026!');
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [loadingStatus, setLoadingStatus] = useState<string>('Signing in...');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [demoAccountsOpen, setDemoAccountsOpen] = useState<boolean>(true);
 
@@ -45,14 +46,23 @@ export const LoginPage: React.FC = () => {
 
     setIsLoading(true);
     setErrorMsg(null);
+    setLoadingStatus('Verifying credentials...');
+
+    const timer1 = setTimeout(() => {
+      setLoadingStatus('Connecting to backend server...');
+    }, 2500);
+
+    const timer2 = setTimeout(() => {
+      setLoadingStatus('Server is waking up from sleep, please wait...');
+    }, 6000);
 
     try {
       await api.login(email.trim(), password);
       navigate('/app/findings');
     } catch (err: any) {
       const msg = err.message || 'Login failed';
-      if (msg.includes('Cannot reach backend') || msg.includes('Failed to fetch')) {
-        setErrorMsg(`Cannot reach backend server at ${API_BASE_URL}. The free tier may be waking up (please wait 30-60s) or check network connection.`);
+      if (msg.includes('Cannot reach backend') || msg.includes('Failed to fetch') || msg.includes('timed out')) {
+        setErrorMsg(`Cannot reach backend server at ${API_BASE_URL}. The server may be waking up (free tier takes ~30-50s) or check network connection.`);
       } else if (msg.includes('401') || msg.includes('user not found') || msg.includes('Invalid credentials')) {
         setErrorMsg(err.message || 'Invalid credentials: user not found or incorrect password. (Use default demo accounts: admin@aura-audio.com with BrandTrace2026!)');
       } else if (msg.includes('403')) {
@@ -61,6 +71,8 @@ export const LoginPage: React.FC = () => {
         setErrorMsg(msg);
       }
     } finally {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
       setIsLoading(false);
     }
   };
@@ -243,8 +255,14 @@ export const LoginPage: React.FC = () => {
                   rightIcon={<ArrowRightIcon className="w-4 h-4" />}
                   className="w-full mt-2"
                 >
-                  Sign In
+                  {isLoading ? loadingStatus : 'Sign In'}
                 </Button>
+
+                {isLoading && (
+                  <p className="text-[11px] text-purple-600 dark:text-purple-400 animate-pulse text-center mt-2 font-medium">
+                    {loadingStatus}
+                  </p>
+                )}
               </form>
 
               {/* Seeded Demo Accounts Selector */}

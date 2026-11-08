@@ -1,7 +1,7 @@
 services:
   # ── 1. Backend Web Service (FastAPI) ──────────────────────────────
   - type: web
-    name: brandtrace-api
+    name: brandtrace
     runtime: python
     rootDir: backend
     plan: free

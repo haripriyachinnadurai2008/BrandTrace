@@ -197,9 +197,20 @@ export const LoginPage: React.FC = () => {
 
               {/* Error Banner */}
               {errorMsg && (
-                <div className="mb-6 p-4 rounded-xl bg-rose-500/10 border border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-200 text-xs flex items-start gap-3 animate-in fade-in">
-                  <ShieldAlertIcon className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
-                  <div className="leading-relaxed">{errorMsg}</div>
+                <div className="mb-6 p-4 rounded-xl bg-rose-500/10 border border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-200 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in">
+                  <div className="flex items-start gap-3">
+                    <ShieldAlertIcon className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+                    <div className="leading-relaxed">{errorMsg}</div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={(e) => handleSubmit(e as any)}
+                    className="shrink-0 self-end sm:self-center"
+                  >
+                    Retry
+                  </Button>
                 </div>
               )}
 

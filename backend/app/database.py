@@ -56,7 +56,7 @@ else:
         pool_pre_ping=True,
         pool_size=5,
         max_overflow=10,
-        connect_args={"client_encoding": "utf8"},
+        connect_args={"client_encoding": "utf8", "connect_timeout": 3},
     )
 
 SessionLocal = sessionmaker(
@@ -68,12 +68,13 @@ SessionLocal = sessionmaker(
 Base = declarative_base()
 
 
-def ensure_db_connected(max_retries: int = 5, retry_delay: float = 2.0):
+def ensure_db_connected(max_retries: int = 2, retry_delay: float = 1.0):
     """
-    Ensures DB connectivity at startup.
-    When hosted on Render/cloud services, PostgreSQL may take a few seconds to spin up.
-    Attempts connection with retries. If remote PostgreSQL is unreachable or connection
-    is refused, gracefully reconfigures the engine to SQLite so the backend never crashes.
+    Ensures DB connectivity at startup within a fast 5-7 second budget.
+    Attempts connection with retries using a 3s connect_timeout.
+    If remote PostgreSQL is unreachable or connection is refused,
+    gracefully and immediately falls back to local SQLite so the
+    FastAPI container starts up in under 7s and passes Render health checks.
     """
     global engine, SessionLocal, DATABASE_URL, _is_sqlite
     import time
@@ -90,14 +91,14 @@ def ensure_db_connected(max_retries: int = 5, retry_delay: float = 2.0):
             print(f"[BrandTrace DB] Successfully connected to database on attempt {attempt}.")
             break
         except Exception as exc:
-            print(f"[BrandTrace DB] Connection attempt {attempt}/{max_retries} failed: {exc}")
+            print(f"[BrandTrace DB] Connection attempt {attempt}/{max_retries} failed ({type(exc).__name__}): {exc}")
             if attempt < max_retries:
                 time.sleep(retry_delay)
 
     if not connected:
         print(
-            "[BrandTrace DB Fallback] Could not reach remote PostgreSQL after retries. "
-            "Falling back to local SQLite 'sqlite:///./brandtrace.db' to maintain full service availability."
+            "[BrandTrace DB Fallback] Remote PostgreSQL unreachable within startup budget. "
+            "Immediately falling back to local SQLite 'sqlite:///./brandtrace.db' to ensure 100% service uptime."
         )
         DATABASE_URL = "sqlite:///./brandtrace.db"
         _is_sqlite = True

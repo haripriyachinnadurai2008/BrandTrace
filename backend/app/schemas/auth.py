@@ -41,3 +41,11 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: UserPublicResponse
+
+
+class DemoLoginRequest(BaseModel):
+    role: Optional[str] = "admin"
+
+
+class PublicConfigResponse(BaseModel):
+    demo_mode: bool

@@ -212,18 +212,22 @@ export const FindingsView: React.FC<{ currentRole: UserRole }> = ({ currentRole 
 
         <div className="flex items-center flex-wrap gap-3">
           <select
-            value={selectedId}
+            value={selectedId || (items.length > 0 ? items[0].id : '')}
             onChange={(e) => setSelectedId(e.target.value)}
             disabled={loading || items.length === 0}
-            className="text-xs sm:text-sm border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 bg-white/80 dark:bg-slate-950/80 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500 font-medium min-w-[240px] sm:min-w-[300px] disabled:opacity-60 disabled:cursor-not-allowed"
+            className="text-xs sm:text-sm border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-purple-500 font-medium w-full sm:w-auto min-w-[240px] sm:min-w-[320px] disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {loading ? (
-              <option value="" disabled>Loading content pieces...</option>
+              <option value="" disabled className="bg-white dark:bg-slate-900 text-slate-500">Loading content pieces...</option>
             ) : items.length === 0 ? (
-              <option value="" disabled>No content items available for campaign</option>
+              <option value="" disabled className="bg-white dark:bg-slate-900 text-slate-500">No content items available for campaign</option>
             ) : (
               items.map(it => (
-                <option key={it.id} value={it.id}>
+                <option
+                  key={it.id}
+                  value={it.id}
+                  className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white py-1"
+                >
                   {it.title} ({it.channel}) — [{it.current_state}]
                 </option>
               ))

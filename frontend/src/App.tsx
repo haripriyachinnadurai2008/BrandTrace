@@ -32,6 +32,11 @@ const AppContent: React.FC = () => {
   if (path === '/') {
     return (
       <>
+        {isMissingApiUrl && (
+          <div className="bg-rose-600 text-white px-4 py-2.5 text-center text-xs sm:text-sm font-semibold shadow-md">
+            ⚠️ Configuration Error: <code>VITE_API_BASE_URL</code> is not set in production.
+          </div>
+        )}
         <LandingPage />
         <ToastContainer />
       </>
@@ -42,6 +47,11 @@ const AppContent: React.FC = () => {
   if (path === '/login') {
     return (
       <>
+        {isMissingApiUrl && (
+          <div className="bg-rose-600 text-white px-4 py-2.5 text-center text-xs sm:text-sm font-semibold shadow-md">
+            ⚠️ Configuration Error: <code>VITE_API_BASE_URL</code> is not set in production.
+          </div>
+        )}
         <LoginPage />
         <ToastContainer />
       </>
@@ -70,6 +80,7 @@ const AppContent: React.FC = () => {
         <AppHeader
           activeTab={activeTab}
           currentRole={currentRole}
+          onRoleChange={setCurrentRole}
           onOpenMobileSidebar={() => setMobileSidebarOpen(true)}
         />
 

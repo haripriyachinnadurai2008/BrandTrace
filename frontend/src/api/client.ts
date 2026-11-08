@@ -48,6 +48,51 @@ class ApiClient {
     return this.token;
   }
 
+  isTokenValid(): boolean {
+    if (!this.token) return false;
+    try {
+      const parts = this.token.split('.');
+      if (parts.length !== 3) return false;
+      const payload = JSON.parse(atob(parts[1]));
+      if (payload.exp && payload.exp * 1000 < Date.now()) {
+        this.logout();
+        return false;
+      }
+      return true;
+    } catch {
+      this.logout();
+      return false;
+    }
+  }
+
+  async getPublicConfig(): Promise<{ demo_mode: boolean }> {
+    try {
+      return await this.request<{ demo_mode: boolean }>('/config/public', { method: 'GET' });
+    } catch {
+      return { demo_mode: false };
+    }
+  }
+
+  async demoLogin(role: string = 'admin'): Promise<any> {
+    const res = await this.request<any>('/auth/demo-login', {
+      method: 'POST',
+      body: JSON.stringify({ role }),
+    });
+    if (res && res.access_token) {
+      this.token = res.access_token;
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('brandtrace_token', res.access_token);
+        if (res.user) {
+          localStorage.setItem('brandtrace_user', JSON.stringify(res.user));
+        }
+      }
+      if (res.user && res.user.role) {
+        this.setRole(res.user.role as UserRole);
+      }
+    }
+    return res;
+  }
+
   async login(email: string, password: string): Promise<any> {
     const res = await this.request<any>('/auth/login', {
       method: 'POST',
@@ -57,6 +102,9 @@ class ApiClient {
       this.token = res.access_token;
       if (typeof window !== 'undefined') {
         localStorage.setItem('brandtrace_token', res.access_token);
+        if (res.user) {
+          localStorage.setItem('brandtrace_user', JSON.stringify(res.user));
+        }
       }
       if (res.user && res.user.role) {
         this.setRole(res.user.role as UserRole);
@@ -74,6 +122,9 @@ class ApiClient {
       this.token = res.access_token;
       if (typeof window !== 'undefined') {
         localStorage.setItem('brandtrace_token', res.access_token);
+        if (res.user) {
+          localStorage.setItem('brandtrace_user', JSON.stringify(res.user));
+        }
       }
       if (res.user && res.user.role) {
         this.setRole(res.user.role as UserRole);
@@ -86,6 +137,7 @@ class ApiClient {
     this.token = null;
     if (typeof window !== 'undefined') {
       localStorage.removeItem('brandtrace_token');
+      localStorage.removeItem('brandtrace_user');
     }
   }
 
@@ -184,6 +236,11 @@ class ApiClient {
       method: 'POST',
       body: JSON.stringify(payload),
     });
+  }
+
+  // Reseed Demo Data
+  reseedDemoData() {
+    return this.request<any>('/seed', { method: 'POST' });
   }
 
   // Facts

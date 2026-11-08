@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from '../router/Router';
+import { api } from '../api/client';
 import { ThemeToggle } from '../components/ThemeToggle';
 import { GlassCard } from '../components/common/GlassCard';
 import { Button } from '../components/common/Button';
@@ -27,6 +28,37 @@ export const LandingPage: React.FC = () => {
   const { navigate } = useRouter();
   const [simulatedPrice, setSimulatedPrice] = useState<number>(4999);
   const isSimulated = simulatedPrice === 5499;
+
+  // Demo mode configuration
+  const [demoMode, setDemoMode] = useState<boolean>(false);
+  const [demoLoading, setDemoLoading] = useState<boolean>(false);
+  const [demoError, setDemoError] = useState<string | null>(null);
+
+  useEffect(() => {
+    api.getPublicConfig().then(cfg => {
+      setDemoMode(Boolean(cfg && cfg.demo_mode));
+    }).catch(() => {
+      setDemoMode(false);
+    });
+  }, []);
+
+  const handleEnterDemo = async () => {
+    setDemoLoading(true);
+    setDemoError(null);
+    try {
+      await api.demoLogin('admin');
+      navigate('/app/findings');
+    } catch (err: any) {
+      const msg = err.message || '';
+      if (msg.includes('Cannot reach backend') || msg.includes('timed out') || msg.includes('Failed to fetch')) {
+        setDemoError('Cannot reach server, try again in a minute (free hosting may be waking up)');
+      } else {
+        setDemoError(msg || 'Demo sign-in failed. Please try again.');
+      }
+    } finally {
+      setDemoLoading(false);
+    }
+  };
 
   const scrollToSection = (id: string) => {
     const el = document.getElementById(id);
@@ -84,14 +116,26 @@ export const LandingPage: React.FC = () => {
           {/* Right Actions */}
           <div className="flex items-center space-x-3">
             <ThemeToggle />
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={() => navigate('/login')}
-              rightIcon={<ArrowRightIcon className="w-3.5 h-3.5" />}
-            >
-              Sign In to Demo
-            </Button>
+            {demoMode ? (
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleEnterDemo}
+                isLoading={demoLoading}
+                rightIcon={<ArrowRightIcon className="w-3.5 h-3.5" />}
+              >
+                Enter demo as Admin
+              </Button>
+            ) : (
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => navigate('/login')}
+                rightIcon={<ArrowRightIcon className="w-3.5 h-3.5" />}
+              >
+                Sign In to Demo
+              </Button>
+            )}
           </div>
         </div>
       </header>
@@ -133,14 +177,26 @@ export const LandingPage: React.FC = () => {
 
               {/* CTAs */}
               <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 pt-2">
-                <Button
-                  size="lg"
-                  onClick={() => navigate('/login')}
-                  rightIcon={<ArrowRightIcon className="w-4 h-4" />}
-                  className="w-full sm:w-auto text-base"
-                >
-                  Sign in to the demo
-                </Button>
+                {demoMode ? (
+                  <Button
+                    size="lg"
+                    onClick={handleEnterDemo}
+                    isLoading={demoLoading}
+                    rightIcon={<ArrowRightIcon className="w-4 h-4" />}
+                    className="w-full sm:w-auto text-base font-bold shadow-lg shadow-purple-600/25"
+                  >
+                    Enter demo as Admin
+                  </Button>
+                ) : (
+                  <Button
+                    size="lg"
+                    onClick={() => navigate('/login')}
+                    rightIcon={<ArrowRightIcon className="w-4 h-4" />}
+                    className="w-full sm:w-auto text-base font-bold"
+                  >
+                    Sign in to the demo
+                  </Button>
+                )}
                 <Button
                   variant="outline"
                   size="lg"
@@ -150,6 +206,12 @@ export const LandingPage: React.FC = () => {
                   See how it works
                 </Button>
               </div>
+
+              {demoError && (
+                <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-300 dark:border-rose-800 text-xs text-rose-700 dark:text-rose-300 animate-in fade-in">
+                  {demoError}
+                </div>
+              )}
 
               <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center justify-center lg:justify-start gap-2 pt-2">
                 <CheckCircleIcon className="w-4 h-4 text-emerald-500" />

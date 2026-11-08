@@ -2,16 +2,111 @@ import uuid
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 
 from app.database import get_db
 from app.models.auth import User, UserRole
 from app.auth.guards import get_current_user
 from app.auth.jwt import verify_password, create_access_token, hash_password
-from app.config import IST
-from app.schemas.auth import UserResponse, UserPublicResponse, LoginRequest, RegisterRequest, TokenResponse
+from app.config import settings, IST
+from app.schemas.auth import (
+    UserResponse,
+    UserPublicResponse,
+    LoginRequest,
+    RegisterRequest,
+    TokenResponse,
+    DemoLoginRequest,
+    PublicConfigResponse,
+)
 
 router = APIRouter(tags=["Authentication & Users"])
+
+
+@router.get("/config/public", response_model=PublicConfigResponse, tags=["Configuration"])
+def get_public_config():
+    """Return public configuration flags (e.g. demo_mode). Unauthenticated."""
+    return PublicConfigResponse(demo_mode=settings.demo_mode_enabled)
+
+
+@router.post("/auth/demo-login", response_model=TokenResponse)
+def demo_login(
+    payload: Optional[DemoLoginRequest] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    1-Click Demo Login for visitors/judges.
+    Active ONLY when DEMO_MODE=true in environment.
+    Takes optional {"role": "admin" | "creator" | "reviewer" | "agency"} (default "admin").
+    Returns {access_token, token_type, user} with a signed HS256 JWT.
+    Returns 404 when DEMO_MODE is not 'true'.
+    """
+    if not settings.demo_mode_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Not Found"
+        )
+
+    requested_role_str = (payload.role if payload and payload.role else "admin").lower().strip()
+    role_map = {
+        "admin": UserRole.ADMIN,
+        "creator": UserRole.CREATOR,
+        "reviewer": UserRole.REVIEWER,
+        "agency": UserRole.AGENCY,
+    }
+    target_role = role_map.get(requested_role_str)
+    if not target_role:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid demo role '{requested_role_str}'. Allowed roles: admin, creator, reviewer, agency."
+        )
+
+    # 1. Find the seeded demo user for that role
+    user = db.query(User).filter(User.role == target_role).first()
+
+    # 2. If missing, auto-create the demo user so 1-click login never fails
+    if not user:
+        demo_defaults = {
+            UserRole.ADMIN: ("usr_admin_elena", "Elena Vance", "admin@aura-audio.com", None),
+            UserRole.CREATOR: ("usr_creator_marcus", "Marcus Brody", "creator@aura-audio.com", None),
+            UserRole.REVIEWER: ("usr_reviewer_devin", "Devin Chen", "reviewer@aura-audio.com", None),
+            UserRole.AGENCY: ("usr_agency_partner", "Partner Agency", "agency@partner.com", "camp_festive_launch"),
+        }
+        default_id, u_name, default_email, u_camp = demo_defaults[target_role]
+        u_id = default_id if not db.query(User).filter(User.id == default_id).first() else f"{default_id}_{uuid.uuid4().hex[:6]}"
+        u_email = default_email if not db.query(User).filter(User.email == default_email).first() else f"{target_role.value.lower()}_{uuid.uuid4().hex[:6]}@aura-audio.com"
+        user = User(
+            id=u_id,
+            org_id="org_aura_audio",
+            name=u_name,
+            email=u_email,
+            password_hash=hash_password("BrandTrace2026!"),
+            role=target_role,
+            assigned_campaign_id=u_camp,
+            created_at=datetime.now(IST)
+        )
+        try:
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+        except Exception:
+            db.rollback()
+            user = db.query(User).filter(User.role == target_role).first()
+
+    # Ensure Agency user has assigned campaign
+    if user.role == UserRole.AGENCY and not user.assigned_campaign_id:
+        try:
+            user.assigned_campaign_id = "camp_festive_launch"
+            db.commit()
+            db.refresh(user)
+        except Exception:
+            db.rollback()
+
+    token = create_access_token({"sub": user.id, "email": user.email, "role": user.role.value})
+    return TokenResponse(
+        access_token=token,
+        token_type="bearer",
+        user=UserPublicResponse.model_validate(user)
+    )
 
 
 @router.post("/auth/register", response_model=TokenResponse)

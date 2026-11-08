@@ -30,12 +30,44 @@ export const LoginPage: React.FC = () => {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [demoAccountsOpen, setDemoAccountsOpen] = useState<boolean>(true);
 
+  // Demo mode states
+  const [demoMode, setDemoMode] = useState<boolean>(false);
+  const [demoLoading, setDemoLoading] = useState<boolean>(false);
+  const [demoError, setDemoError] = useState<string | null>(null);
+
+  useEffect(() => {
+    api.getPublicConfig().then(cfg => {
+      setDemoMode(Boolean(cfg && cfg.demo_mode));
+    }).catch(() => {
+      setDemoMode(false);
+    });
+  }, []);
+
   // If already authenticated, redirect to /app/findings
   useEffect(() => {
-    if (api.getToken()) {
+    if (api.isTokenValid()) {
       navigate('/app/findings');
     }
   }, [navigate]);
+
+  const handleDemoAdminLogin = async () => {
+    setDemoLoading(true);
+    setDemoError(null);
+    setErrorMsg(null);
+    try {
+      await api.demoLogin('admin');
+      navigate('/app/findings');
+    } catch (err: any) {
+      const msg = err.message || '';
+      if (msg.includes('Cannot reach backend') || msg.includes('timed out') || msg.includes('Failed to fetch')) {
+        setDemoError('Cannot reach server, try again in a minute (free hosting may be waking up)');
+      } else {
+        setDemoError(msg || 'Demo sign-in failed. Please try again.');
+      }
+    } finally {
+      setDemoLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -214,6 +246,49 @@ export const LoginPage: React.FC = () => {
                 </div>
               )}
 
+              {/* 1-Click Demo Mode Entry */}
+              {demoMode && (
+                <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-purple-500/10 via-indigo-500/10 to-blue-500/10 border border-purple-300 dark:border-purple-800/80 shadow-xs">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wider">
+                      <SparklesIcon className="w-3.5 h-3.5" />
+                      <span>One-Click Instant Access</span>
+                    </div>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 font-semibold">
+                      Demo Mode
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-600 dark:text-slate-300 mb-3">
+                    Explore the live brand governance prototype directly as the Admin demo user. No credentials needed.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="primary"
+                    size="md"
+                    onClick={handleDemoAdminLogin}
+                    isLoading={demoLoading}
+                    rightIcon={<ArrowRightIcon className="w-4 h-4" />}
+                    className="w-full font-bold shadow-md shadow-purple-600/20"
+                  >
+                    Enter demo as Admin
+                  </Button>
+                  {demoError && (
+                    <div className="mt-2.5 p-2.5 rounded-lg bg-rose-500/10 border border-rose-300 dark:border-rose-800 text-[11px] text-rose-700 dark:text-rose-300 font-medium">
+                      {demoError}
+                    </div>
+                  )}
+
+                  <div className="relative my-4 text-center">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-full border-t border-slate-200 dark:border-slate-800" />
+                    </div>
+                    <span className="relative px-3 text-[10px] font-bold uppercase tracking-wider bg-white/90 dark:bg-slate-900/90 text-slate-400">
+                      Or sign in with email &amp; password
+                    </span>
+                  </div>
+                </div>
+              )}
+
               {/* Credentials Form */}
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
@@ -227,7 +302,7 @@ export const LoginPage: React.FC = () => {
                       autoFocus
                       value={email}
                       onChange={e => setEmail(e.target.value)}
-                      placeholder="name@brandtrace.internal"
+                      placeholder="admin@aura-audio.com"
                       className="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white/80 dark:bg-slate-950/80 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 transition"
                     />
                     <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-slate-400">

@@ -318,18 +318,22 @@ export const TruthGraphView: React.FC<{ currentRole: UserRole }> = ({ currentRol
                     disabled
                     className="w-full text-xs sm:text-sm border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 bg-slate-100 dark:bg-slate-900 text-slate-400 cursor-not-allowed"
                   >
-                    <option value="">No facts available for your role or campaign</option>
+                    <option value="" className="bg-white dark:bg-slate-900 text-slate-500">No facts available for your role or campaign</option>
                   </select>
                 ) : (
                   <select
-                    value={selectedFact?.id || ''}
+                    value={selectedFact?.id || (facts.length > 0 ? facts[0].id : '')}
                     onChange={(e) => handleFactChange(e.target.value)}
-                    className="w-full text-xs sm:text-sm border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 bg-white/80 dark:bg-slate-950/80 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    className="w-full text-xs sm:text-sm border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 font-medium"
                   >
                     {facts.map(f => {
                       const latestVal = f.versions && f.versions.length > 0 ? f.versions[0].value : 'N/A';
                       return (
-                        <option key={f.id} value={f.id}>
+                        <option
+                          key={f.id}
+                          value={f.id}
+                          className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white py-1"
+                        >
                           {f.id} - {f.name} (Current: {latestVal})
                         </option>
                       );

@@ -202,6 +202,33 @@ Stale            | 0          | 0            | 0          | 2
 
 ---
 
+## Demo Mode (1-Click Instant Evaluation)
+
+BrandTrace features a zero-friction **Demo Mode** designed specifically for judging, evaluating, and interactive walkthroughs without requiring email or password inputs.
+
+### What It Does
+- **1-Click Instant Entry**: Visitors and judges clicking **"Enter demo as Admin"** on the landing page or login page receive an authenticated HS256 JWT token instantly via `POST /auth/demo-login`.
+- **In-App Role Switcher**: Once inside the application, an in-app **Demo Role Switcher** in the top navigation header allows evaluators to toggle seamlessly between **Admin**, **Creator**, **Reviewer**, and **Agency (Partner)** personas to test role-based access control and views without logging out.
+- **Seeded Fictional Data**: All demo data operates on fictional illustrative data (Aura Audio Technologies, fact F001, and 5 collateral items). Missing demo users are auto-provisioned seamlessly if wiped.
+- **Strict Role Guard Enforcement**: Unlike unsafe dev header-bypasses, demo mode generates genuine cryptographically signed JWT tokens carrying the real role claim (`admin`, `creator`, `reviewer`, `agency`), ensuring all backend security guards (`require_roles([UserRole.ADMIN])`) remain 100% active.
+
+### Security & Production Configuration
+> [!IMPORTANT]
+> **Demo Mode is intended exclusively for prototype judging and evaluation.**
+> For any production enterprise deployment, `DEMO_MODE` **MUST** be set to `false`.
+
+To disable Demo Mode:
+1. In `backend/.env` (or Render Environment Variables), set:
+   ```env
+   DEMO_MODE=false
+   ```
+2. When `DEMO_MODE=false`:
+   - `POST /auth/demo-login` is disabled and strictly returns `404 Not Found`.
+   - `GET /config/public` returns `{"demo_mode": false}`.
+   - The frontend automatically hides the "Enter demo as Admin" button and in-app demo role switcher, requiring normal JWT email/password credentials.
+
+---
+
 ## Deployment Checklist & Environment Variables
 
 ### 1. Render Deployment (Backend: FastAPI + PostgreSQL)

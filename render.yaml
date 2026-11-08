@@ -20,6 +20,8 @@ services:
         value: production
       - key: ALLOW_ROLE_SWITCHER
         value: "false"
+      - key: DEMO_MODE
+        value: "true"
       - key: CORS_ORIGINS
         value: "https://brandtrace-frontend.onrender.com,http://localhost:5173,http://127.0.0.1:5173"
 

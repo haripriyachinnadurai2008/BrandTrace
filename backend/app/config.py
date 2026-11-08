@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "brandtrace-secret-key-change-in-production"
     # In production set to "false"; role-picker header disabled when false.
     ALLOW_ROLE_SWITCHER: str = "true"
+    # Demo mode: when "true", allows 1-click visitor demo login and exposes demo switcher
+    DEMO_MODE: str = "false"
     # Comma-separated allowed origins; wildcard only in dev.
     CORS_ORIGINS: str = (
         "https://brandtrace-frontend.onrender.com,"
@@ -51,6 +53,10 @@ class Settings(BaseSettings):
     @property
     def role_switcher_enabled(self) -> bool:
         return self.ALLOW_ROLE_SWITCHER.lower() == "true"
+
+    @property
+    def demo_mode_enabled(self) -> bool:
+        return str(self.DEMO_MODE).strip().lower() in ("true", "1", "yes")
 
 settings = Settings()
 

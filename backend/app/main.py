@@ -26,10 +26,17 @@ async def lifespan(app: FastAPI):
         # auto-seed demo dataset so the prototype is immediately usable.
         try:
             from app.models.auth import User, UserRole
+            from app.models.facts import BrandFact, FactVersion
+            from app.models.content import ContentItem
+            from app.models.campaign import CampaignFact
             from seed.seed_data import seed_database
             with SessionLocal() as db:
-                if db.query(User).count() == 0:
-                    print("[BrandTrace] Empty database detected. Auto-seeding demo dataset...")
+                user_count = db.query(User).count()
+                fact_count = db.query(BrandFact).count()
+                content_count = db.query(ContentItem).count()
+
+                if user_count == 0 or fact_count == 0 or content_count == 0:
+                    print(f"[BrandTrace] Incomplete database detected (users={user_count}, facts={fact_count}, content={content_count}). Auto-seeding demo dataset...")
                     seed_database(target_engine=active_engine)
                     print("[BrandTrace] Demo dataset seeded successfully.")
                 else:
@@ -43,6 +50,23 @@ async def lifespan(app: FastAPI):
                     if updated:
                         db.commit()
                         print("[BrandTrace] Linked existing Agency demo user to camp_festive_launch.")
+
+                    # Ensure CampaignFact links Festive Launch to F001 v1
+                    cf_exists = db.query(CampaignFact).filter(
+                        CampaignFact.campaign_id == "camp_festive_launch"
+                    ).first()
+                    if not cf_exists:
+                        v1 = db.query(FactVersion).filter(FactVersion.fact_id == "F001").first()
+                        if v1:
+                            db.add(CampaignFact(
+                                id="cf_festive_f001",
+                                campaign_id="camp_festive_launch",
+                                fact_version_id=v1.version_id,
+                                notes="Standard retail launch price",
+                                created_at=datetime.now(IST)
+                            ))
+                            db.commit()
+                            print("[BrandTrace] Ensured Festive Launch linked to F001 in campaign_facts.")
         except Exception as seed_err:
             print(f"[BrandTrace] Auto-seed note: {seed_err}")
 
@@ -113,6 +137,12 @@ def health_check():
         "db_error": db_error,
         "role_switcher_enabled": settings.role_switcher_enabled,
     }
+
+
+@app.get("/config/public", tags=["Configuration"])
+def get_public_config_root():
+    """Public server configuration flags (no auth)."""
+    return {"demo_mode": settings.demo_mode_enabled}
 
 
 @app.post("/seed", tags=["Admin / Demo"])

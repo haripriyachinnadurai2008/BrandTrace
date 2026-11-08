@@ -41,16 +41,21 @@ export const RouterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   }
 
-  // Route protection: if visiting /app/* and no token (and not in local dev with role switcher allowed), redirect to /login
+  // Route protection and redirection:
+  // If token is missing, invalid or expired when visiting /app/*, clear and redirect to /login.
+  // If token is valid when visiting / or /login, redirect to /app/findings.
   useEffect(() => {
-    const isDev = import.meta.env.DEV;
-    const isRoleSwitcherAllowed =
-      import.meta.env.VITE_ALLOW_ROLE_SWITCHER !== 'false' &&
-      import.meta.env.MODE !== 'production';
+    const isTokenValid = api.isTokenValid();
 
-    const token = api.getToken();
-    if (path.startsWith('/app') && !token && !isRoleSwitcherAllowed) {
-      navigate('/login');
+    if (path.startsWith('/app')) {
+      if (!isTokenValid) {
+        api.logout();
+        navigate('/login');
+      }
+    } else if (path === '/' || path === '/login') {
+      if (isTokenValid) {
+        navigate('/app/findings');
+      }
     }
   }, [path, navigate]);
 

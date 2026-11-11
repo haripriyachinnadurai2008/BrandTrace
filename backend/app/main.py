@@ -20,6 +20,72 @@ from app.routers import findings as findings_router
 from app.routers import notifications as notifications_router
 
 
+def ensure_demo_dataset_seeded(db, active_engine) -> bool:
+    """
+    Ensure baseline demo records exist idempotently without ever
+    dropping or overwriting user-created precedents, audit logs, or facts.
+    Returns True if seeding was executed.
+    """
+    from app.models.auth import User, UserRole
+    from app.models.facts import BrandFact, FactVersion
+    from app.models.content import ContentItem
+    from app.models.campaign import CampaignFact
+    from app.models.governance import Precedent
+    from app.models.audit import AuditLog
+    from seed.seed_data import seed_database
+
+    user_count = db.query(User).count()
+    fact_count = db.query(BrandFact).count()
+    content_count = db.query(ContentItem).count()
+    precedent_count = db.query(Precedent).count()
+    audit_count = db.query(AuditLog).count()
+
+    if (
+        user_count == 0
+        or fact_count == 0
+        or content_count == 0
+        or precedent_count == 0
+        or audit_count == 0
+    ):
+        print(
+            f"[BrandTrace] Incomplete database detected "
+            f"(users={user_count}, facts={fact_count}, content={content_count}, "
+            f"precedents={precedent_count}, audit={audit_count}). Auto-seeding demo dataset..."
+        )
+        seed_database(target_engine=active_engine, reset=False)
+        print("[BrandTrace] Demo dataset ensured idempotently.")
+        return True
+
+    # Ensure existing demo Agency user has assigned campaign set to Festive Launch
+    agency_users = db.query(User).filter(User.role == UserRole.AGENCY).all()
+    updated = False
+    for au in agency_users:
+        if not au.assigned_campaign_id:
+            au.assigned_campaign_id = "camp_festive_launch"
+            updated = True
+    if updated:
+        db.commit()
+        print("[BrandTrace] Linked existing Agency demo user to camp_festive_launch.")
+
+    # Ensure CampaignFact links Festive Launch to F001 v1
+    cf_exists = db.query(CampaignFact).filter(
+        CampaignFact.campaign_id == "camp_festive_launch"
+    ).first()
+    if not cf_exists:
+        v1 = db.query(FactVersion).filter(FactVersion.fact_id == "F001").first()
+        if v1:
+            db.add(CampaignFact(
+                id="cf_festive_f001",
+                campaign_id="camp_festive_launch",
+                fact_version_id=v1.version_id,
+                notes="Standard retail launch price",
+                created_at=datetime.now(IST)
+            ))
+            db.commit()
+            print("[BrandTrace] Ensured Festive Launch linked to F001 in campaign_facts.")
+    return False
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup: verify DB connectivity, create tables + audit triggers + auto-seed if empty."""
@@ -30,67 +96,13 @@ async def lifespan(app: FastAPI):
         with active_engine.begin() as conn:
             apply_audit_triggers(conn)
 
-        # Ensure baseline demo records exist idempotently without ever
-        # dropping or overwriting user-created precedents, audit logs, or facts.
         try:
-            from app.models.auth import User, UserRole
-            from app.models.facts import BrandFact, FactVersion
-            from app.models.content import ContentItem
-            from app.models.campaign import CampaignFact
-            from app.models.precedent import Precedent
-            from app.models.audit import AuditLog
-            from seed.seed_data import seed_database
             with SessionLocal() as db:
-                user_count = db.query(User).count()
-                fact_count = db.query(BrandFact).count()
-                content_count = db.query(ContentItem).count()
-                precedent_count = db.query(Precedent).count()
-                audit_count = db.query(AuditLog).count()
-
-                if (
-                    user_count == 0
-                    or fact_count == 0
-                    or content_count == 0
-                    or precedent_count == 0
-                    or audit_count == 0
-                ):
-                    print(
-                        f"[BrandTrace] Incomplete database detected "
-                        f"(users={user_count}, facts={fact_count}, content={content_count}, "
-                        f"precedents={precedent_count}, audit={audit_count}). Auto-seeding demo dataset..."
-                    )
-                    seed_database(target_engine=active_engine, reset=False)
-                    print("[BrandTrace] Demo dataset ensured idempotently.")
-                else:
-                    # Ensure existing demo Agency user has assigned campaign set to Festive Launch
-                    agency_users = db.query(User).filter(User.role == UserRole.AGENCY).all()
-                    updated = False
-                    for au in agency_users:
-                        if not au.assigned_campaign_id:
-                            au.assigned_campaign_id = "camp_festive_launch"
-                            updated = True
-                    if updated:
-                        db.commit()
-                        print("[BrandTrace] Linked existing Agency demo user to camp_festive_launch.")
-
-                    # Ensure CampaignFact links Festive Launch to F001 v1
-                    cf_exists = db.query(CampaignFact).filter(
-                        CampaignFact.campaign_id == "camp_festive_launch"
-                    ).first()
-                    if not cf_exists:
-                        v1 = db.query(FactVersion).filter(FactVersion.fact_id == "F001").first()
-                        if v1:
-                            db.add(CampaignFact(
-                                id="cf_festive_f001",
-                                campaign_id="camp_festive_launch",
-                                fact_version_id=v1.version_id,
-                                notes="Standard retail launch price",
-                                created_at=datetime.now(IST)
-                            ))
-                            db.commit()
-                            print("[BrandTrace] Ensured Festive Launch linked to F001 in campaign_facts.")
+                ensure_demo_dataset_seeded(db, active_engine)
         except Exception as seed_err:
-            print(f"[BrandTrace] Auto-seed note: {seed_err}")
+            import traceback
+            print(f"[BrandTrace Auto-Seed Error]: {seed_err}")
+            traceback.print_exc()
 
     except Exception as exc:
         print(f"[BrandTrace Startup Warning] Database initialization failed: {exc}")

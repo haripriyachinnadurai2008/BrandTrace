@@ -286,7 +286,9 @@ export const FindingsView: React.FC<{ currentRole: UserRole }> = ({ currentRole 
             {loading ? (
               <option value="" disabled className="bg-white dark:bg-slate-900 text-slate-500">Loading content pieces...</option>
             ) : items.length === 0 ? (
-              <option value="" disabled className="bg-white dark:bg-slate-900 text-slate-500">No content items available for campaign</option>
+              <option value="" disabled className="bg-white dark:bg-slate-900 text-slate-500">
+                {currentRole === 'Agency' ? 'No content items available for campaign' : 'No content items loaded'}
+              </option>
             ) : (
               items.map(it => (
                 <option
@@ -347,7 +349,11 @@ export const FindingsView: React.FC<{ currentRole: UserRole }> = ({ currentRole 
         <div className="p-4 rounded-xl bg-purple-500/10 border border-purple-200 dark:border-purple-800 text-purple-900 dark:text-purple-200 text-xs flex items-center justify-between gap-3 animate-in fade-in">
           <div className="flex items-center gap-2">
             <SparklesIcon className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-            <span>No content items available for your assigned campaign.</span>
+            <span>
+              {currentRole === 'Agency'
+                ? 'No content items available for your assigned campaign.'
+                : 'No content items available yet. Click Refresh to check again.'}
+            </span>
           </div>
           <Button variant="secondary" size="sm" onClick={loadItems} leftIcon={<RefreshIcon className="w-3.5 h-3.5" />}>
             Refresh

@@ -54,7 +54,7 @@ _is_sqlite = DATABASE_URL.startswith("sqlite")
 if _is_sqlite:
     engine = create_engine(
         DATABASE_URL,
-        connect_args={"check_same_thread": False},
+        connect_args={"check_same_thread": False, "timeout": 15},
     )
 else:
     engine = create_engine(
@@ -124,7 +124,7 @@ def ensure_db_connected(max_retries: int = 2, retry_delay: float = 1.5):
         _is_fallback_sqlite = True
         engine = create_engine(
             DATABASE_URL,
-            connect_args={"check_same_thread": False},
+            connect_args={"check_same_thread": False, "timeout": 15},
         )
         SessionLocal.configure(bind=engine)
 

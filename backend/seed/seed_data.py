@@ -3,7 +3,7 @@ from datetime import datetime
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.config import IST
-from app.database import engine, SessionLocal, Base, apply_audit_triggers
+from app.database import engine, get_active_engine, SessionLocal, Base, apply_audit_triggers
 from app.auth.jwt import hash_password
 from app.models.auth import Organization, User, UserRole
 from app.models.facts import EvidenceSource, BrandFact, FactVersion
@@ -16,10 +16,14 @@ from app.models.audit import AuditLog
 def hash_text(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
-def _ensure_row(db: Session, model_cls, pk_field: str, instance):
-    """Insert instance only if no row with the same primary key exists. Returns (row, created)."""
+def _ensure_row(db: Session, model_cls, pk_field: str, instance, alt_unique_field: str = None):
+    """Insert instance only if no row with matching PK (or optional unique field) exists."""
     pk_val = getattr(instance, pk_field)
     existing = db.query(model_cls).filter(getattr(model_cls, pk_field) == pk_val).first()
+    if existing is None and alt_unique_field:
+        alt_val = getattr(instance, alt_unique_field, None)
+        if alt_val is not None:
+            existing = db.query(model_cls).filter(getattr(model_cls, alt_unique_field) == alt_val).first()
     if existing is not None:
         return existing, False
     db.add(instance)
@@ -38,7 +42,7 @@ def seed_database(db: Session = None, target_engine = None, reset: bool = False)
     - Rules, 2 initial precedents & initial audit log
     """
     should_close = False
-    eng = target_engine or (db.get_bind() if db else engine)
+    eng = target_engine or (db.get_bind() if db else get_active_engine())
 
     if reset:
         Base.metadata.drop_all(bind=eng)
@@ -70,7 +74,7 @@ def seed_database(db: Session = None, target_engine = None, reset: bool = False)
             password_hash=demo_pwd_hash,
             role=UserRole.ADMIN,
             created_at=datetime(2026, 8, 1, 9, 0, 0, tzinfo=IST)
-        ))
+        ), alt_unique_field="email")
         creator, _ = _ensure_row(db, User, "id", User(
             id="usr_creator_marcus",
             org_id=org.id,
@@ -79,7 +83,7 @@ def seed_database(db: Session = None, target_engine = None, reset: bool = False)
             password_hash=demo_pwd_hash,
             role=UserRole.CREATOR,
             created_at=datetime(2026, 8, 1, 9, 0, 0, tzinfo=IST)
-        ))
+        ), alt_unique_field="email")
         reviewer, _ = _ensure_row(db, User, "id", User(
             id="usr_reviewer_devin",
             org_id=org.id,
@@ -88,7 +92,7 @@ def seed_database(db: Session = None, target_engine = None, reset: bool = False)
             password_hash=demo_pwd_hash,
             role=UserRole.REVIEWER,
             created_at=datetime(2026, 8, 1, 9, 0, 0, tzinfo=IST)
-        ))
+        ), alt_unique_field="email")
         agency, _ = _ensure_row(db, User, "id", User(
             id="usr_agency_partner",
             org_id=org.id,
@@ -98,7 +102,7 @@ def seed_database(db: Session = None, target_engine = None, reset: bool = False)
             role=UserRole.AGENCY,
             assigned_campaign_id="camp_festive_launch",
             created_at=datetime(2026, 8, 1, 9, 0, 0, tzinfo=IST)
-        ))
+        ), alt_unique_field="email")
         if not agency.assigned_campaign_id:
             agency.assigned_campaign_id = "camp_festive_launch"
             db.flush()

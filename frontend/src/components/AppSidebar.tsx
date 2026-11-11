@@ -13,6 +13,7 @@ import {
   SparklesIcon,
   LogOutIcon,
   UserIcon,
+  LockIcon,
   XIcon,
 } from './Icons';
 
@@ -38,7 +39,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
   const [notifOpen, setNotifOpen] = useState<boolean>(false);
 
   const isRoleSwitcherAllowed =
-    import.meta.env.VITE_ALLOW_ROLE_SWITCHER !== 'false' &&
+    import.meta.env.VITE_ALLOW_ROLE_SWITCHER === 'true' &&
     import.meta.env.MODE !== 'production';
 
   useEffect(() => {
@@ -67,16 +68,62 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
 
   const roles: UserRole[] = ['Admin', 'Creator', 'Reviewer', 'Agency'];
 
-  const navItems = [
-    { id: 'findings', label: '1. Content Findings', icon: FileTextIcon, desc: 'AI parsing & fixes' },
-    { id: 'impact', label: '2. Change Impact', icon: SparklesIcon, desc: 'Blast radius cascade' },
-    { id: 'facts', label: '3. Truth Graph', icon: GitCommitIcon, desc: 'Fact version timeline' },
-    { id: 'campaigns', label: '4. Campaign Coherence', icon: LayersIcon, desc: 'Cross-channel checks' },
-    { id: 'precedents', label: '5. Precedents', icon: HistoryIcon, desc: 'Living guidelines memory' },
-    { id: 'audit', label: '6. Audit Trail', icon: ShieldCheckIcon, desc: 'Append-only ledger' },
+  const navItems: {
+    id: string;
+    label: string;
+    icon: React.FC<{ className?: string }>;
+    desc: string;
+    allowedRoles: UserRole[];
+    restrictedTip?: string;
+  }[] = [
+    {
+      id: 'findings',
+      label: '1. Content Findings',
+      icon: FileTextIcon,
+      desc: 'AI parsing & fixes',
+      allowedRoles: ['Admin', 'Creator', 'Reviewer', 'Agency'],
+    },
+    {
+      id: 'impact',
+      label: '2. Change Impact',
+      icon: SparklesIcon,
+      desc: 'Blast radius cascade',
+      allowedRoles: ['Admin', 'Creator', 'Reviewer', 'Agency'],
+    },
+    {
+      id: 'facts',
+      label: '3. Truth Graph',
+      icon: GitCommitIcon,
+      desc: 'Fact version timeline',
+      allowedRoles: ['Admin', 'Creator', 'Reviewer', 'Agency'],
+    },
+    {
+      id: 'campaigns',
+      label: '4. Campaign Coherence',
+      icon: LayersIcon,
+      desc: 'Cross-channel checks',
+      allowedRoles: ['Admin', 'Creator', 'Reviewer'],
+      restrictedTip: 'Not available for Agency role',
+    },
+    {
+      id: 'precedents',
+      label: '5. Precedents',
+      icon: HistoryIcon,
+      desc: 'Living guidelines memory',
+      allowedRoles: ['Admin', 'Creator', 'Reviewer', 'Agency'],
+    },
+    {
+      id: 'audit',
+      label: '6. Audit Trail',
+      icon: ShieldCheckIcon,
+      desc: 'Append-only ledger',
+      allowedRoles: ['Admin', 'Reviewer'],
+      restrictedTip: 'Requires Admin or Reviewer role',
+    },
   ];
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
+  const sessionInfo = api.getSessionInfo();
 
   const sidebarContent = (
     <div className="flex flex-col h-full justify-between p-4 sm:p-5 select-none">
@@ -98,7 +145,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
                   BrandTrace
                 </span>
                 <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 font-semibold border border-purple-200 dark:border-purple-800">
-                  Gov 2.0
+                  Round 3
                 </span>
               </div>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
@@ -129,24 +176,42 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
             {navItems.map(item => {
               const Icon = item.icon;
               const isActive = activeTab === item.id;
+              const isAllowed = item.allowedRoles.includes(currentRole);
 
               return (
                 <button
                   key={item.id}
-                  onClick={() => handleTabClick(item.id)}
+                  type="button"
+                  disabled={!isAllowed}
+                  title={!isAllowed ? item.restrictedTip || 'Not available for your role' : item.desc}
+                  onClick={() => {
+                    if (isAllowed) handleTabClick(item.id);
+                  }}
                   className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 ${
-                    isActive
-                      ? 'bg-purple-600 text-white shadow-md shadow-purple-600/25 dark:bg-purple-600'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/80 dark:hover:bg-slate-900/60'
+                    !isAllowed
+                      ? 'text-slate-400 dark:text-slate-600 opacity-55 cursor-not-allowed'
+                      : isActive
+                        ? 'bg-purple-600 text-white shadow-md shadow-purple-600/25 dark:bg-purple-600'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/80 dark:hover:bg-slate-900/60'
                   }`}
                 >
                   <div className="flex items-center space-x-3">
-                    <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-slate-500 dark:text-slate-400'}`} />
+                    <Icon
+                      className={`w-4 h-4 shrink-0 ${
+                        !isAllowed
+                          ? 'text-slate-400 dark:text-slate-600'
+                          : isActive
+                            ? 'text-white'
+                            : 'text-slate-500 dark:text-slate-400'
+                      }`}
+                    />
                     <span className="tracking-tight text-left">{item.label}</span>
                   </div>
-                  {isActive && (
+                  {!isAllowed ? (
+                    <LockIcon className="w-3.5 h-3.5 text-slate-400 dark:text-slate-600 shrink-0" />
+                  ) : isActive ? (
                     <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse shrink-0" />
-                  )}
+                  ) : null}
                 </button>
               );
             })}
@@ -166,9 +231,20 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
                 return (
                   <button
                     key={r}
-                    onClick={() => {
-                      setCurrentRole(r);
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const cfg = await api.getPublicConfig();
+                        if (cfg.demo_mode) {
+                          await api.demoLogin(r.toLowerCase());
+                          setCurrentRole(api.getRole());
+                          return;
+                        }
+                      } catch {
+                        // fall through to dev switcher header update
+                      }
                       api.setRole(r);
+                      setCurrentRole(r);
                     }}
                     className={`px-2 py-1 text-xs font-semibold rounded-lg transition ${
                       isActive
@@ -195,10 +271,10 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
             </div>
             <div className="truncate text-left">
               <div className="text-xs font-bold text-slate-900 dark:text-white truncate">
-                {currentRole} User
+                {sessionInfo.name ? `${sessionInfo.name} (${currentRole})` : `${currentRole} User`}
               </div>
               <div className="text-[10px] font-mono text-purple-600 dark:text-purple-400 truncate">
-                JWT Session
+                {sessionInfo.email || 'JWT Session'}
               </div>
             </div>
           </div>

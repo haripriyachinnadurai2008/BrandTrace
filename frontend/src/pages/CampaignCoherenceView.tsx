@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { api } from '../api/client';
+import { api, isPermissionError } from '../api/client';
 import { Campaign, CoherenceFinding, UserRole } from '../types';
+import { useRouter } from '../router/Router';
 import { GlassCard } from '../components/common/GlassCard';
 import { Button } from '../components/common/Button';
 import { Skeleton } from '../components/common/Skeleton';
+import { RoleRestrictedCard } from '../components/common/RoleRestrictedCard';
+import { ErrorRetryCard } from '../components/common/ErrorRetryCard';
 import { showToast } from '../components/common/Toast';
 import {
   LayersIcon,
@@ -13,36 +16,56 @@ import {
   SparklesIcon,
 } from '../components/Icons';
 
-export const CampaignCoherenceView: React.FC<{ currentRole: UserRole }> = () => {
+export const CampaignCoherenceView: React.FC<{ currentRole: UserRole }> = ({ currentRole }) => {
+  const { navigate } = useRouter();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [selectedCampaignId, setSelectedCampaignId] = useState<string>('');
   const [coherenceFindings, setCoherenceFindings] = useState<CoherenceFinding[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [checking, setChecking] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [forbidden, setForbidden] = useState<boolean>(false);
   const [lastCheckStats, setLastCheckStats] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadCampaigns();
-  }, []);
+  const isPermitted = currentRole !== 'Agency';
 
   useEffect(() => {
-    if (selectedCampaignId) {
+    if (!isPermitted) {
+      setCampaigns([]);
+      setSelectedCampaignId('');
+      setCoherenceFindings([]);
+      setError(null);
+      setForbidden(false);
+      setLastCheckStats(null);
+      return;
+    }
+    loadCampaigns();
+  }, [currentRole, isPermitted]);
+
+  useEffect(() => {
+    if (selectedCampaignId && isPermitted) {
       handleCheckCoherence(selectedCampaignId);
     }
-  }, [selectedCampaignId]);
+  }, [selectedCampaignId, isPermitted]);
 
   const loadCampaigns = async () => {
+    if (!isPermitted) return;
     try {
       setLoading(true);
       setError(null);
+      setForbidden(false);
       const data = await api.getCampaigns();
-      setCampaigns(data);
-      if (data.length > 0 && !selectedCampaignId) {
+      setCampaigns(data || []);
+      if (data && data.length > 0 && !selectedCampaignId) {
         setSelectedCampaignId(data[0].id);
       }
     } catch (err: any) {
-      setError(err.message || 'Failed to load campaigns');
+      if (isPermissionError(err)) {
+        setForbidden(true);
+        setError(null);
+      } else {
+        setError(err.message || 'Failed to load campaigns');
+      }
     } finally {
       setLoading(false);
     }
@@ -50,10 +73,11 @@ export const CampaignCoherenceView: React.FC<{ currentRole: UserRole }> = () => 
 
   const handleCheckCoherence = async (targetId?: string) => {
     const cid = targetId || selectedCampaignId;
-    if (!cid) return;
+    if (!cid || !isPermitted) return;
     try {
       setChecking(true);
       setError(null);
+      setForbidden(false);
       const res = await api.checkCampaignCoherence(cid);
       setCoherenceFindings(res.findings || []);
       const msg = res.has_contradictions
@@ -66,15 +90,48 @@ export const CampaignCoherenceView: React.FC<{ currentRole: UserRole }> = () => 
         showToast({ type: 'success', title: 'Coherence Verified', message: msg });
       }
     } catch (err: any) {
-      const msg = err.message || 'Campaign coherence check failed';
-      setError(msg);
-      showToast({ type: 'error', title: 'Check Failed', message: msg });
+      if (isPermissionError(err)) {
+        setForbidden(true);
+        setError(null);
+      } else {
+        const msg = err.message || 'Campaign coherence check failed';
+        setError(msg);
+        showToast({ type: 'error', title: 'Check Failed', message: msg });
+      }
     } finally {
       setChecking(false);
     }
   };
 
   const currentCamp = campaigns.find(c => c.id === selectedCampaignId);
+
+  if (!isPermitted || forbidden) {
+    return (
+      <div className="space-y-6">
+        <GlassCard className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center space-x-2">
+              <LayersIcon className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+              <h1 className="text-xl font-extrabold text-slate-900 dark:text-white">
+                Campaign Coherence Lite
+              </h1>
+            </div>
+            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
+              Deterministic cross-channel contradiction detector across internal marketing channels.
+            </p>
+          </div>
+        </GlassCard>
+
+        <RoleRestrictedCard
+          currentRole={currentRole}
+          featureTitle="Campaign Coherence Checker"
+          allowedRolesLabel="Admin, Creator, Reviewer"
+          reason="Cross-channel campaign coherence scans compare internal BrandTrace assets across all channels and are restricted for Agency accounts."
+          onGoBack={() => navigate('/app/findings')}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -100,13 +157,20 @@ export const CampaignCoherenceView: React.FC<{ currentRole: UserRole }> = () => 
           <select
             value={selectedCampaignId}
             onChange={(e) => setSelectedCampaignId(e.target.value)}
-            className="text-xs sm:text-sm border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 bg-white/80 dark:bg-slate-950/80 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500 font-medium"
+            disabled={loading || campaigns.length === 0}
+            className="text-xs sm:text-sm border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-purple-500 font-medium disabled:opacity-60"
           >
-            {campaigns.map(c => (
-              <option key={c.id} value={c.id}>
-                {c.name} ({c.status})
+            {campaigns.length === 0 ? (
+              <option value="" disabled className="bg-white dark:bg-slate-900">
+                {loading ? 'Loading campaigns...' : 'No campaigns found'}
               </option>
-            ))}
+            ) : (
+              campaigns.map(c => (
+                <option key={c.id} value={c.id} className="bg-white dark:bg-slate-900">
+                  {c.name} ({c.status})
+                </option>
+              ))
+            )}
           </select>
 
           <Button
@@ -123,9 +187,12 @@ export const CampaignCoherenceView: React.FC<{ currentRole: UserRole }> = () => 
       </GlassCard>
 
       {error && (
-        <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-200 text-xs animate-in fade-in">
-          {error}
-        </div>
+        <ErrorRetryCard
+          title="Could not analyze campaign coherence"
+          message={error}
+          onRetry={() => (selectedCampaignId ? handleCheckCoherence(selectedCampaignId) : loadCampaigns())}
+          retrying={loading || checking}
+        />
       )}
 
       {lastCheckStats && (

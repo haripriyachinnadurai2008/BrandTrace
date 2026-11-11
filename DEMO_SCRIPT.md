@@ -1,5 +1,5 @@
 # BrandTrace — Live Demo Walkthrough Script
-> **Challenge**: Inkloom AI Brand Governance Challenge (Round 2)  
+> **Challenge**: Inkloom AI Brand Governance Challenge (Round 3)  
 > **Core Principle**: THE LLM EXTRACTS, THE BACKEND VERIFIES, HUMANS DECIDE.  
 > **System Stated State**: All dates are interpreted in `Asia/Kolkata` (IST) before UTC conversion.
 

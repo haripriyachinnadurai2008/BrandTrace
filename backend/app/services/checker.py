@@ -32,7 +32,7 @@ from app.models.claims import ExtractedClaim, ClaimFactLink, Finding
 from app.models.facts import FactVersion
 from app.models.audit import AuditLog
 from app.services.tokeniser import tokenise
-from app.services.llm_client import call_llm
+from app.services.llm_client import call_llm_with_meta
 from app.services.matcher import match_claim
 from app.services.verifier import verify
 from app.services.normalizer import DeterministicNormalizer, NormalizedEntity
@@ -116,7 +116,8 @@ def run_check(
     masked_text, token_map = tokenise(raw_text, publish_date_year)
 
     # ── Step 2: LLM call ──────────────────────────────────────────────────────
-    llm_claims = call_llm(masked_text, db=db)
+    llm_meta = call_llm_with_meta(masked_text, db=db)
+    llm_claims = llm_meta.get("claims", [])
 
     # ── Step 3 + 4: Process each LLM claim ───────────────────────────────────
     findings_out = []
@@ -391,12 +392,20 @@ def run_check(
 
     db.commit()
 
+    ai_unavailable = bool(llm_meta.get("ai_unavailable", False))
     return {
         "content_id": content_id,
         "content_version_id": cv.version_id,
         "content_status": content_status_label,
         "findings_count": len(findings_out),
         "findings": findings_out,
-        "ai_label": "AI-assisted analysis",
+        "ai_label": (
+            "AI unavailable, using cached/deterministic result"
+            if ai_unavailable
+            else "AI-assisted analysis"
+        ),
+        "ai_unavailable": ai_unavailable,
+        "extraction_source": llm_meta.get("source", "cache"),
+        "fallback_reason": llm_meta.get("fallback_reason"),
     }
 

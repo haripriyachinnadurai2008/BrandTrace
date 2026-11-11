@@ -1,31 +1,44 @@
 import React, { useState, useEffect } from 'react';
-import { api } from '../api/client';
+import { api, isPermissionError } from '../api/client';
 import { Precedent, UserRole } from '../types';
+import { useRouter } from '../router/Router';
 import { GlassCard } from '../components/common/GlassCard';
+import { Button } from '../components/common/Button';
 import { Skeleton } from '../components/common/Skeleton';
+import { RoleRestrictedCard } from '../components/common/RoleRestrictedCard';
+import { ErrorRetryCard } from '../components/common/ErrorRetryCard';
 import {
   HistoryIcon,
   CheckCircleIcon,
+  RefreshIcon,
   SparklesIcon,
 } from '../components/Icons';
 
-export const PrecedentsView: React.FC<{ currentRole: UserRole }> = () => {
+export const PrecedentsView: React.FC<{ currentRole: UserRole }> = ({ currentRole }) => {
+  const { navigate } = useRouter();
   const [precedents, setPrecedents] = useState<Precedent[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [forbidden, setForbidden] = useState<boolean>(false);
 
   useEffect(() => {
     loadPrecedents();
-  }, []);
+  }, [currentRole]);
 
   const loadPrecedents = async () => {
     try {
       setLoading(true);
       setError(null);
+      setForbidden(false);
       const data = await api.getPrecedents();
-      setPrecedents(data);
+      setPrecedents(data || []);
     } catch (err: any) {
-      setError(err.message || 'Failed to load precedents');
+      if (isPermissionError(err)) {
+        setForbidden(true);
+        setError(null);
+      } else {
+        setError(err.message || 'Failed to load precedents');
+      }
     } finally {
       setLoading(false);
     }
@@ -40,6 +53,27 @@ export const PrecedentsView: React.FC<{ currentRole: UserRole }> = () => {
   }, {});
 
   const ruleKeys = Object.keys(groupedByRule);
+
+  if (forbidden) {
+    return (
+      <div className="space-y-6">
+        <GlassCard className="p-5">
+          <div className="flex items-center space-x-2">
+            <HistoryIcon className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+            <h1 className="text-xl font-extrabold text-slate-900 dark:text-white">
+              Living Guidelines Lite
+            </h1>
+          </div>
+        </GlassCard>
+        <RoleRestrictedCard
+          currentRole={currentRole}
+          featureTitle="Living Guidelines Precedents"
+          allowedRolesLabel="Admin, Creator, Reviewer"
+          onGoBack={() => navigate('/app/findings')}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -61,15 +95,30 @@ export const PrecedentsView: React.FC<{ currentRole: UserRole }> = () => {
           </p>
         </div>
 
-        <div className="text-xs text-slate-500 dark:text-slate-400 font-mono bg-slate-100/80 dark:bg-slate-900/80 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800">
-          Total Precedents Logged: <strong className="text-purple-600 dark:text-purple-400">{precedents.length}</strong>
+        <div className="flex items-center gap-3">
+          <div className="text-xs text-slate-500 dark:text-slate-400 font-mono bg-slate-100/80 dark:bg-slate-900/80 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800">
+            Total Precedents Logged: <strong className="text-purple-600 dark:text-purple-400">{precedents.length}</strong>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={loadPrecedents}
+            disabled={loading}
+            isLoading={loading}
+            leftIcon={<RefreshIcon className="w-4 h-4 text-slate-500" />}
+          >
+            Refresh
+          </Button>
         </div>
       </GlassCard>
 
       {error && (
-        <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-200 text-xs animate-in fade-in">
-          {error}
-        </div>
+        <ErrorRetryCard
+          title="Could not load precedents"
+          message={error}
+          onRetry={loadPrecedents}
+          retrying={loading}
+        />
       )}
 
       {loading ? (
@@ -79,9 +128,15 @@ export const PrecedentsView: React.FC<{ currentRole: UserRole }> = () => {
       ) : ruleKeys.length === 0 ? (
         <GlassCard className="p-12 text-center text-slate-500 dark:text-slate-400">
           <CheckCircleIcon className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
-          <p className="font-bold text-slate-800 dark:text-slate-200">No reviewer overrides on record.</p>
+          <p className="font-bold text-slate-800 dark:text-slate-200">
+            {currentRole === 'Agency'
+              ? 'No campaign-linked precedents on record.'
+              : 'No reviewer overrides on record.'}
+          </p>
           <p className="text-xs text-slate-400 mt-1">
-            When a reviewer dismisses or overrides a finding with a justification, it automatically appears here.
+            {currentRole === 'Agency'
+              ? 'Precedents linked to findings in your assigned campaign appear here once recorded.'
+              : 'When a reviewer dismisses or overrides a finding with a justification, it automatically appears here.'}
           </p>
         </GlassCard>
       ) : (

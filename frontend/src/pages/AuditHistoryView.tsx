@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { api } from '../api/client';
+import { api, isPermissionError } from '../api/client';
 import { AuditLog, UserRole } from '../types';
+import { useRouter } from '../router/Router';
 import { GlassCard } from '../components/common/GlassCard';
 import { Button } from '../components/common/Button';
 import { Skeleton } from '../components/common/Skeleton';
+import { RoleRestrictedCard } from '../components/common/RoleRestrictedCard';
+import { ErrorRetryCard } from '../components/common/ErrorRetryCard';
 import {
   HistoryIcon,
   RefreshIcon,
@@ -11,35 +14,51 @@ import {
 } from '../components/Icons';
 
 export const AuditHistoryView: React.FC<{ currentRole: UserRole }> = ({ currentRole }) => {
+  const { navigate } = useRouter();
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [forbidden, setForbidden] = useState<boolean>(false);
 
   // Filters
   const [entityTypeFilter, setEntityTypeFilter] = useState<string>('');
   const [actionFilter, setActionFilter] = useState<string>('');
 
+  const isPermitted = currentRole === 'Admin' || currentRole === 'Reviewer';
+
   useEffect(() => {
+    if (!isPermitted) {
+      setLogs([]);
+      setError(null);
+      setForbidden(false);
+      setLoading(false);
+      return;
+    }
     loadLogs();
-  }, [entityTypeFilter, actionFilter, currentRole]);
+  }, [entityTypeFilter, actionFilter, currentRole, isPermitted]);
 
   const loadLogs = async () => {
+    if (!isPermitted) return;
     try {
       setLoading(true);
       setError(null);
+      setForbidden(false);
       const params: any = {};
       if (entityTypeFilter) params.entity_type = entityTypeFilter;
       if (actionFilter) params.action = actionFilter;
       const data = await api.getAuditLogs(params);
-      setLogs(data);
+      setLogs(data || []);
     } catch (err: any) {
-      setError(err.message || 'Failed to load audit logs');
+      if (isPermissionError(err)) {
+        setForbidden(true);
+        setError(null);
+      } else {
+        setError(err.message || 'Failed to load audit logs');
+      }
     } finally {
       setLoading(false);
     }
   };
-
-  const isPermitted = currentRole === 'Admin' || currentRole === 'Reviewer';
 
   return (
     <div className="space-y-6">
@@ -65,7 +84,7 @@ export const AuditHistoryView: React.FC<{ currentRole: UserRole }> = ({ currentR
           variant="outline"
           size="sm"
           onClick={loadLogs}
-          disabled={loading || !isPermitted}
+          disabled={loading || !isPermitted || forbidden}
           isLoading={loading}
           leftIcon={<RefreshIcon className="w-4 h-4 text-slate-500" />}
         >
@@ -73,16 +92,14 @@ export const AuditHistoryView: React.FC<{ currentRole: UserRole }> = ({ currentR
         </Button>
       </GlassCard>
 
-      {!isPermitted ? (
-        <GlassCard className="p-12 text-center text-slate-500 dark:text-slate-400">
-          <ShieldCheckIcon className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
-          <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">
-            Access Restricted (Role Guard 403)
-          </h3>
-          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-md mx-auto">
-            Audit trail inspection is strictly role-gated to <strong>Admin</strong> and <strong>Reviewer</strong>. Switch your active role in the top bar to inspect this ledger.
-          </p>
-        </GlassCard>
+      {!isPermitted || forbidden ? (
+        <RoleRestrictedCard
+          currentRole={currentRole}
+          featureTitle="the Governance Audit Trail"
+          allowedRolesLabel="Admin, Reviewer"
+          reason={`The append-only audit ledger is scoped to Admin and Reviewer accounts. Your active session role (${currentRole}) is view-restricted from this ledger.`}
+          onGoBack={() => navigate('/app/findings')}
+        />
       ) : (
         <>
           {/* Filters Bar */}
@@ -94,14 +111,14 @@ export const AuditHistoryView: React.FC<{ currentRole: UserRole }> = ({ currentR
               <select
                 value={entityTypeFilter}
                 onChange={(e) => setEntityTypeFilter(e.target.value)}
-                className="text-xs border border-slate-300 dark:border-slate-700 rounded-xl px-2.5 py-1.5 bg-white/80 dark:bg-slate-950/80 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-purple-500"
+                className="text-xs border border-slate-300 dark:border-slate-700 rounded-xl px-2.5 py-1.5 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-purple-500"
               >
-                <option value="">All Entities</option>
-                <option value="brand_fact">Brand Fact</option>
-                <option value="fact_version">Fact Version</option>
-                <option value="content_item">Content Item</option>
-                <option value="content_version">Content Version</option>
-                <option value="finding">Finding</option>
+                <option value="" className="bg-white dark:bg-slate-900">All Entities</option>
+                <option value="brand_fact" className="bg-white dark:bg-slate-900">Brand Fact</option>
+                <option value="fact_version" className="bg-white dark:bg-slate-900">Fact Version</option>
+                <option value="content_item" className="bg-white dark:bg-slate-900">Content Item</option>
+                <option value="content_version" className="bg-white dark:bg-slate-900">Content Version</option>
+                <option value="finding" className="bg-white dark:bg-slate-900">Finding</option>
               </select>
             </div>
 
@@ -112,15 +129,15 @@ export const AuditHistoryView: React.FC<{ currentRole: UserRole }> = ({ currentR
               <select
                 value={actionFilter}
                 onChange={(e) => setActionFilter(e.target.value)}
-                className="text-xs border border-slate-300 dark:border-slate-700 rounded-xl px-2.5 py-1.5 bg-white/80 dark:bg-slate-950/80 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-purple-500"
+                className="text-xs border border-slate-300 dark:border-slate-700 rounded-xl px-2.5 py-1.5 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-purple-500"
               >
-                <option value="">All Actions</option>
-                <option value="CREATE">CREATE</option>
-                <option value="VERSION_CHANGE">VERSION_CHANGE</option>
-                <option value="APPROVE">APPROVE</option>
-                <option value="PUBLISH_STATUS">PUBLISH_STATUS</option>
-                <option value="CHECK_RUN">CHECK_RUN</option>
-                <option value="DISMISS">DISMISS</option>
+                <option value="" className="bg-white dark:bg-slate-900">All Actions</option>
+                <option value="CREATE" className="bg-white dark:bg-slate-900">CREATE</option>
+                <option value="VERSION_CHANGE" className="bg-white dark:bg-slate-900">VERSION_CHANGE</option>
+                <option value="APPROVE" className="bg-white dark:bg-slate-900">APPROVE</option>
+                <option value="PUBLISH_STATUS" className="bg-white dark:bg-slate-900">PUBLISH_STATUS</option>
+                <option value="CHECK_RUN" className="bg-white dark:bg-slate-900">CHECK_RUN</option>
+                <option value="DISMISS" className="bg-white dark:bg-slate-900">DISMISS</option>
               </select>
             </div>
 
@@ -130,9 +147,12 @@ export const AuditHistoryView: React.FC<{ currentRole: UserRole }> = ({ currentR
           </GlassCard>
 
           {error && (
-            <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-200 text-xs animate-in fade-in">
-              {error}
-            </div>
+            <ErrorRetryCard
+              title="Could not load audit trail"
+              message={error}
+              onRetry={loadLogs}
+              retrying={loading}
+            />
           )}
 
           {/* Audit Logs Table */}

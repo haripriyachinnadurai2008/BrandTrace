@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { api } from '../api/client';
+import { api, isPermissionError } from '../api/client';
 import { FactImpactResponse, UserRole } from '../types';
+import { useRouter } from '../router/Router';
 import { GlassCard } from '../components/common/GlassCard';
 import { Button } from '../components/common/Button';
 import { Skeleton } from '../components/common/Skeleton';
+import { RoleRestrictedCard } from '../components/common/RoleRestrictedCard';
+import { ErrorRetryCard } from '../components/common/ErrorRetryCard';
 import { showToast } from '../components/common/Toast';
 import {
   DownloadIcon,
@@ -12,25 +15,33 @@ import {
   SparklesIcon,
 } from '../components/Icons';
 
-export const ImpactListView: React.FC<{ currentRole: UserRole }> = () => {
+export const ImpactListView: React.FC<{ currentRole: UserRole }> = ({ currentRole }) => {
+  const { navigate } = useRouter();
   const [impactData, setImpactData] = useState<FactImpactResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [forbidden, setForbidden] = useState<boolean>(false);
   const [actionMsg, setActionMsg] = useState<string | null>(null);
   const [proposedPrice] = useState<string>('₹5,499');
 
   useEffect(() => {
     loadImpact();
-  }, [proposedPrice]);
+  }, [proposedPrice, currentRole]);
 
   const loadImpact = async () => {
     try {
       setLoading(true);
       setError(null);
+      setForbidden(false);
       const data = await api.getFactImpact('F001', proposedPrice);
       setImpactData(data);
     } catch (err: any) {
-      setError(err.message || 'Failed to calculate change impact');
+      if (isPermissionError(err)) {
+        setForbidden(true);
+        setError(null);
+      } else {
+        setError(err.message || 'Failed to calculate change impact');
+      }
     } finally {
       setLoading(false);
     }
@@ -73,6 +84,17 @@ export const ImpactListView: React.FC<{ currentRole: UserRole }> = () => {
 
   const summary = impactData?.summary || { total: 0, re_review: 0, stale: 0, red_alert: 0, left_alone: 0 };
 
+  if (forbidden) {
+    return (
+      <RoleRestrictedCard
+        currentRole={currentRole}
+        featureTitle="Change-Impact Blast Radius"
+        allowedRolesLabel="Admin, Creator, Reviewer"
+        onGoBack={() => navigate('/app/findings')}
+      />
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header and Controls */}
@@ -93,14 +115,16 @@ export const ImpactListView: React.FC<{ currentRole: UserRole }> = () => {
         </div>
 
         <div className="flex items-center gap-3">
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={handleRequestReReviewAll}
-            leftIcon={<RefreshIcon className="w-4 h-4" />}
-          >
-            Request Re-review (All)
-          </Button>
+          {currentRole !== 'Agency' && (
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={handleRequestReReviewAll}
+              leftIcon={<RefreshIcon className="w-4 h-4" />}
+            >
+              Request Re-review (All)
+            </Button>
+          )}
 
           <Button
             variant="outline"
@@ -121,9 +145,12 @@ export const ImpactListView: React.FC<{ currentRole: UserRole }> = () => {
       )}
 
       {error && (
-        <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-200 text-xs animate-in fade-in">
-          {error}
-        </div>
+        <ErrorRetryCard
+          title="Could not calculate change impact"
+          message={error}
+          onRetry={loadImpact}
+          retrying={loading}
+        />
       )}
 
       {/* Summary Metrics Cards */}

@@ -5,7 +5,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
 from app.config import settings, IST
-from app.database import engine, Base, apply_audit_triggers, get_db, SessionLocal
+from app.database import (
+    engine,
+    Base,
+    apply_audit_triggers,
+    get_db,
+    SessionLocal,
+    ensure_db_connected,
+    get_active_engine,
+    get_db_info,
+)
 from app.routers import auth, facts, content, audit, campaigns, precedents, sources
 from app.routers import findings as findings_router
 from app.routers import notifications as notifications_router
@@ -15,30 +24,43 @@ from app.routers import notifications as notifications_router
 async def lifespan(app: FastAPI):
     """Startup: verify DB connectivity, create tables + audit triggers + auto-seed if empty."""
     try:
-        from app.database import ensure_db_connected
         active_engine = ensure_db_connected()
 
         Base.metadata.create_all(bind=active_engine)
         with active_engine.begin() as conn:
             apply_audit_triggers(conn)
 
-        # If database is fresh (e.g. SQLite fallback or new Render PostgreSQL DB),
-        # auto-seed demo dataset so the prototype is immediately usable.
+        # Ensure baseline demo records exist idempotently without ever
+        # dropping or overwriting user-created precedents, audit logs, or facts.
         try:
             from app.models.auth import User, UserRole
             from app.models.facts import BrandFact, FactVersion
             from app.models.content import ContentItem
             from app.models.campaign import CampaignFact
+            from app.models.precedent import Precedent
+            from app.models.audit import AuditLog
             from seed.seed_data import seed_database
             with SessionLocal() as db:
                 user_count = db.query(User).count()
                 fact_count = db.query(BrandFact).count()
                 content_count = db.query(ContentItem).count()
+                precedent_count = db.query(Precedent).count()
+                audit_count = db.query(AuditLog).count()
 
-                if user_count == 0 or fact_count == 0 or content_count == 0:
-                    print(f"[BrandTrace] Incomplete database detected (users={user_count}, facts={fact_count}, content={content_count}). Auto-seeding demo dataset...")
-                    seed_database(target_engine=active_engine)
-                    print("[BrandTrace] Demo dataset seeded successfully.")
+                if (
+                    user_count == 0
+                    or fact_count == 0
+                    or content_count == 0
+                    or precedent_count == 0
+                    or audit_count == 0
+                ):
+                    print(
+                        f"[BrandTrace] Incomplete database detected "
+                        f"(users={user_count}, facts={fact_count}, content={content_count}, "
+                        f"precedents={precedent_count}, audit={audit_count}). Auto-seeding demo dataset..."
+                    )
+                    seed_database(target_engine=active_engine, reset=False)
+                    print("[BrandTrace] Demo dataset ensured idempotently.")
                 else:
                     # Ensure existing demo Agency user has assigned campaign set to Festive Launch
                     agency_users = db.query(User).filter(User.role == UserRole.AGENCY).all()
@@ -118,13 +140,15 @@ def health_check():
     """
     db_status = "ok"
     db_error = None
+    active_engine = get_active_engine()
     try:
-        with engine.connect() as conn:
+        with active_engine.connect() as conn:
             conn.execute(text("SELECT 1"))
     except Exception as exc:
         db_status = "error"
         db_error = str(exc)
 
+    db_info = get_db_info()
     now_ist = datetime.now(IST).isoformat()
     return {
         "status": "healthy" if db_status == "ok" else "degraded",
@@ -134,6 +158,8 @@ def health_check():
         "timezone": settings.TIMEZONE,
         "timestamp_ist": now_ist,
         "db": db_status,
+        "db_dialect": db_info.get("dialect"),
+        "fallback_sqlite": db_info.get("fallback_sqlite", False),
         "db_error": db_error,
         "role_switcher_enabled": settings.role_switcher_enabled,
     }
@@ -146,8 +172,8 @@ def get_public_config_root():
 
 
 @app.post("/seed", tags=["Admin / Demo"])
-def trigger_seed():
-    """Seed or reseed demo dataset (Aura Audio, 4 users, F001 v1, 5 pieces)."""
+def trigger_seed(reset: bool = False):
+    """Seed demo dataset idempotently (pass ?reset=true to wipe and reseed)."""
     from seed.seed_data import seed_database
-    res = seed_database(target_engine=engine)
+    res = seed_database(target_engine=get_active_engine(), reset=reset)
     return {"status": "ok", "message": "Demo data seeded successfully", "details": res}

@@ -95,6 +95,9 @@ export interface ContentCheckResult {
   findings_count: number;
   findings: Finding[];
   ai_label: string;
+  ai_unavailable?: boolean;
+  extraction_source?: 'groq' | 'cache' | 'fallback';
+  fallback_reason?: string | null;
 }
 
 export interface ImpactItem {

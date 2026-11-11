@@ -1,14 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { api } from '../api/client';
+import { api, isPermissionError } from '../api/client';
 import { ContentItem, Finding, ContentCheckResult, UserRole } from '../types';
+import { useRouter } from '../router/Router';
 import { TierBadge, StatusBadge, ConfidenceBar } from '../components/Badges';
 import { GlassCard } from '../components/common/GlassCard';
 import { Button } from '../components/common/Button';
 import { CardSkeleton } from '../components/common/Skeleton';
+import { ErrorRetryCard } from '../components/common/ErrorRetryCard';
+import { RoleRestrictedCard } from '../components/common/RoleRestrictedCard';
 import { showToast } from '../components/common/Toast';
 import {
   ShieldCheckIcon,
-  AlertCircleIcon,
+  AlertTriangleIcon,
   CheckCircleIcon,
   RefreshIcon,
   SparklesIcon,
@@ -16,16 +19,28 @@ import {
   CheckIcon,
 } from '../components/Icons';
 
+type CheckMeta = {
+  ai_unavailable?: boolean;
+  ai_label?: string;
+  extraction_source?: ContentCheckResult['extraction_source'];
+  fallback_reason?: string | null;
+};
+
 export const FindingsView: React.FC<{ currentRole: UserRole }> = ({ currentRole }) => {
+  const { navigate } = useRouter();
   const [items, setItems] = useState<ContentItem[]>([]);
   const [selectedId, setSelectedId] = useState<string>('');
   const [contentDetail, setContentDetail] = useState<any>(null);
   const [checkResult, setCheckResult] = useState<ContentCheckResult | null>(null);
+  const [checkMetaById, setCheckMetaById] = useState<Record<string, CheckMeta>>({});
   const [loading, setLoading] = useState<boolean>(false);
   const [checking, setChecking] = useState<boolean>(false);
   const [approving, setApproving] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [forbidden, setForbidden] = useState<boolean>(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  const canVerifyOrEdit = currentRole !== 'Agency';
 
   // Dismiss / Override modal state
   const [dismissFindingId, setDismissFindingId] = useState<string | null>(null);
@@ -42,7 +57,7 @@ export const FindingsView: React.FC<{ currentRole: UserRole }> = ({ currentRole 
 
   useEffect(() => {
     if (selectedId) {
-      loadDetail(selectedId);
+      loadDetail(selectedId, checkMetaById[selectedId]);
     }
   }, [selectedId]);
 
@@ -50,6 +65,7 @@ export const FindingsView: React.FC<{ currentRole: UserRole }> = ({ currentRole 
     try {
       setLoading(true);
       setError(null);
+      setForbidden(false);
       const data = await api.getContentItems();
       const safeData = data || [];
       setItems(safeData);
@@ -63,7 +79,12 @@ export const FindingsView: React.FC<{ currentRole: UserRole }> = ({ currentRole 
         setCheckResult(null);
       }
     } catch (err: any) {
-      setError(err.message || 'Failed to load content items');
+      if (isPermissionError(err)) {
+        setForbidden(true);
+        setError(null);
+      } else {
+        setError(err.message || 'Failed to load content items');
+      }
       setItems([]);
       setSelectedId('');
       setContentDetail(null);
@@ -73,13 +94,16 @@ export const FindingsView: React.FC<{ currentRole: UserRole }> = ({ currentRole 
     }
   };
 
-  const loadDetail = async (id: string) => {
+  const loadDetail = async (id: string, preservedMeta?: CheckMeta) => {
     try {
       setLoading(true);
       setError(null);
+      setForbidden(false);
       setCheckResult(null);
       const detail = await api.getContentDetail(id);
       setContentDetail(detail);
+
+      const effectiveMeta = preservedMeta || checkMetaById[id];
 
       // Map existing findings if already verified
       if (detail.findings && detail.findings.length > 0) {
@@ -104,28 +128,49 @@ export const FindingsView: React.FC<{ currentRole: UserRole }> = ({ currentRole 
           content_status: mappedFindings.some(f => f.risk_tier === 'Critical' || f.risk_tier === 'High') ? 'Needs human review' : 'Ready for review',
           findings_count: mappedFindings.length,
           findings: mappedFindings,
-          ai_label: 'AI-assisted analysis'
+          ai_label: effectiveMeta?.ai_label || 'AI-assisted analysis',
+          ai_unavailable: effectiveMeta?.ai_unavailable,
+          extraction_source: effectiveMeta?.extraction_source,
+          fallback_reason: effectiveMeta?.fallback_reason,
         });
       }
     } catch (err: any) {
-      setError(err.message || 'Failed to load content details');
+      if (isPermissionError(err)) {
+        setForbidden(true);
+        setError(null);
+      } else {
+        setError(err.message || 'Failed to load content details');
+      }
     } finally {
       setLoading(false);
     }
   };
 
   const handleRunCheck = async () => {
-    if (!selectedId) return;
+    if (!selectedId || !canVerifyOrEdit) return;
     try {
       setChecking(true);
       setError(null);
       setSuccessMsg(null);
       const result = await api.checkContent(selectedId);
+      const meta: CheckMeta = {
+        ai_unavailable: result.ai_unavailable,
+        ai_label: result.ai_label,
+        extraction_source: result.extraction_source,
+        fallback_reason: result.fallback_reason,
+      };
+      setCheckMetaById(prev => ({ ...prev, [selectedId]: meta }));
       setCheckResult(result);
-      const msg = `Verification complete: ${result.findings_count} finding(s) extracted.`;
+      const msg = result.ai_unavailable
+        ? `Verification complete (${result.findings_count} finding(s)) using deterministic/cached fallback.`
+        : `Verification complete: ${result.findings_count} finding(s) extracted.`;
       setSuccessMsg(msg);
-      showToast({ type: 'success', title: 'Verification Completed', message: msg });
-      loadDetail(selectedId);
+      showToast({
+        type: result.ai_unavailable ? 'warning' : 'success',
+        title: result.ai_unavailable ? 'AI Fallback Verification' : 'Verification Completed',
+        message: msg,
+      });
+      await loadDetail(selectedId, meta);
     } catch (err: any) {
       const msg = err.message || 'Verification check failed';
       setError(msg);
@@ -191,19 +236,40 @@ export const FindingsView: React.FC<{ currentRole: UserRole }> = ({ currentRole 
     f => (f.risk_tier === 'Critical' || f.risk_tier === 'High') && (f.status as string) !== 'dismissed' && (f.status as string) !== 'overridden'
   );
 
+  if (forbidden) {
+    return (
+      <RoleRestrictedCard
+        currentRole={currentRole}
+        featureTitle="Content Verification & Findings"
+        allowedRolesLabel="Admin, Creator, Reviewer, Agency (Assigned Campaign)"
+        onGoBack={() => navigate('/app/facts')}
+      />
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Top Header / Action Bar */}
       <GlassCard className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center flex-wrap gap-2">
             <h1 className="text-xl font-extrabold text-slate-900 dark:text-white">
               Content Verification &amp; Findings
             </h1>
-            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
-              <SparklesIcon className="w-3.5 h-3.5" />
-              <span>AI-assisted analysis</span>
-            </span>
+            {checkResult?.ai_unavailable ? (
+              <span
+                title={checkResult.fallback_reason || 'Groq API unavailable; deterministic/cached verification used.'}
+                className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-200 border border-amber-300 dark:border-amber-800"
+              >
+                <AlertTriangleIcon className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                <span>AI unavailable, using cached/deterministic result</span>
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                <SparklesIcon className="w-3.5 h-3.5" />
+                <span>{checkResult?.ai_label || 'AI-assisted analysis'}</span>
+              </span>
+            )}
           </div>
           <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
             Deterministic claim extraction, factual ground-truth matching, and human decision gate.
@@ -234,16 +300,22 @@ export const FindingsView: React.FC<{ currentRole: UserRole }> = ({ currentRole 
             )}
           </select>
 
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={handleRunCheck}
-            disabled={checking || !selectedId || items.length === 0}
-            isLoading={checking}
-            leftIcon={<RefreshIcon className="w-4 h-4" />}
-          >
-            {checking ? 'Checking...' : 'Run Verification'}
-          </Button>
+          {canVerifyOrEdit ? (
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={handleRunCheck}
+              disabled={checking || !selectedId || items.length === 0}
+              isLoading={checking}
+              leftIcon={<RefreshIcon className="w-4 h-4" />}
+            >
+              {checking ? 'Checking...' : 'Run Verification'}
+            </Button>
+          ) : (
+            <span className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+              Agency: Read-Only View
+            </span>
+          )}
 
           {(currentRole === 'Reviewer' || currentRole === 'Admin') && selectedItem?.current_state !== 'archived' && (
             <Button
@@ -263,18 +335,12 @@ export const FindingsView: React.FC<{ currentRole: UserRole }> = ({ currentRole 
 
       {/* Notifications / Alerts */}
       {error && (
-        <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-200 text-xs flex items-center justify-between gap-3 animate-in fade-in">
-          <div className="flex items-start space-x-2">
-            <AlertCircleIcon className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
-            <div>
-              <span className="font-bold">Error: </span>
-              {error}
-            </div>
-          </div>
-          <Button variant="secondary" size="sm" onClick={loadItems}>
-            Retry
-          </Button>
-        </div>
+        <ErrorRetryCard
+          title="Could not load content findings"
+          message={error}
+          onRetry={loadItems}
+          retrying={loading}
+        />
       )}
 
       {items.length === 0 && !loading && !error && (
@@ -429,14 +495,16 @@ export const FindingsView: React.FC<{ currentRole: UserRole }> = ({ currentRole 
 
                           <div className="p-3 bg-white/80 dark:bg-slate-900/80 rounded-xl border border-slate-200 dark:border-slate-800 text-xs text-slate-800 dark:text-slate-200 flex items-center justify-between">
                             <span className="italic font-sans">&quot;{activeFixText}&quot;</span>
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              onClick={() => activeFixText && applyFixOption(f.finding_id, activeFixText)}
-                              className="ml-3 shrink-0"
-                            >
-                              Apply fix
-                            </Button>
+                            {canVerifyOrEdit && (
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => activeFixText && applyFixOption(f.finding_id, activeFixText)}
+                                className="ml-3 shrink-0"
+                              >
+                                Apply fix
+                              </Button>
+                            )}
                           </div>
                         </div>
                       )}

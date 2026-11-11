@@ -14,11 +14,19 @@ sys.path.insert(0, str(BACKEND_DIR))
 from seed.seed_data import seed_database
 
 def main():
+    import argparse
+    parser = argparse.ArgumentParser(description="BrandTrace database seed runner")
+    parser.add_argument(
+        "--reset",
+        action="store_true",
+        help="Drop and recreate tables before seeding demo data",
+    )
+    args = parser.parse_args()
     print("=" * 65)
     print(" BRANDTRACE DATABASE SEED RUNNER")
     print("=" * 65)
     try:
-        res = seed_database()
+        res = seed_database(reset=args.reset)
         print("[SUCCESS] Database seeded successfully:")
         for k, v in res.items():
             print(f"  • {k}: {v}")

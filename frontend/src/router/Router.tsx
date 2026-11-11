@@ -29,8 +29,14 @@ export const RouterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
 
     window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
+    const unsubAuth = api.onAuthError(() => {
+      navigate('/login');
+    });
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      unsubAuth();
+    };
+  }, [navigate]);
 
   // Compute active tab for /app/:tab
   let tab = 'findings';

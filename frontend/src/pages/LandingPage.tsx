@@ -1076,7 +1076,7 @@ export const LandingPage: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <GlassCard className="p-6 space-y-3 border-purple-400/50 dark:border-purple-800">
               <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300">
-                <span>Round 2 (Delivered)</span>
+                <span>Core Engine (Delivered)</span>
               </div>
               <h3 className="text-base font-bold text-slate-900 dark:text-white">Core Governance Engine</h3>
               <ul className="text-xs text-slate-600 dark:text-slate-300 space-y-1.5 list-disc list-inside">
@@ -1090,14 +1090,14 @@ export const LandingPage: React.FC = () => {
 
             <GlassCard className="p-6 space-y-3">
               <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300">
-                <span>Round 3 (Upcoming)</span>
+                <span>Round 3 — The Finish</span>
               </div>
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">Semantic Coherence &amp; OCR</h3>
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">PDF Evidence, Drift &amp; Approvals</h3>
               <ul className="text-xs text-slate-600 dark:text-slate-300 space-y-1.5 list-disc list-inside">
-                <li>Embedding-based cross-channel semantic collision</li>
-                <li>Automatic override pattern discovery</li>
-                <li>Fact expiration risk forecasting</li>
-                <li>Direct OCR ingestion of marketing posters</li>
+                <li>PyMuPDF deep-linked evidence highlights</li>
+                <li>Live URL vs Truth Graph drift scanner</li>
+                <li>Rule-triggered multi-party sign-offs</li>
+                <li>Deterministic fallback &amp; resilient RBAC</li>
               </ul>
             </GlassCard>
 
@@ -1127,7 +1127,7 @@ export const LandingPage: React.FC = () => {
             The BrandTrace Engineering Team
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400 mb-8">
-            Inkloom AI Brand Governance Challenge (Round 2)
+            Inkloom AI Brand Governance Challenge (Round 3)
           </p>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-4xl mx-auto">
@@ -1208,7 +1208,7 @@ export const LandingPage: React.FC = () => {
       <footer className="border-t border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-950/80 backdrop-blur-md py-6 text-xs text-slate-500 dark:text-slate-400">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div>
-            <strong>BrandTrace</strong> · Inkloom AI Brand Governance Challenge (Round 2)
+            <strong>BrandTrace</strong> · Inkloom AI Brand Governance Challenge (Round 3)
           </div>
           <div className="text-center sm:text-right font-medium text-purple-700 dark:text-purple-400">
             Principle: The LLM extracts · The backend verifies · Humans decide.

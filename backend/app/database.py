@@ -1,8 +1,12 @@
 
 import os
+from pathlib import Path
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import declarative_base, sessionmaker
 from app.config import settings
+
+_BACKEND_DIR = Path(__file__).resolve().parent.parent
+_DEFAULT_SQLITE_URL = f"sqlite:///{(_BACKEND_DIR / 'brandtrace.db').as_posix()}"
 
 DATABASE_URL = os.getenv("DATABASE_URL") or settings.DATABASE_URL
 
@@ -28,14 +32,16 @@ is_localhost_db = any(
     for host in ("127.0.0.1", "localhost")
 )
 
+_is_fallback_sqlite = False
+
 # Temporary fallback to SQLite if cloud PostgreSQL is not configured.
 if is_cloud and is_localhost_db and not os.getenv("FORCE_POSTGRES_LOCAL"):
     print(
-        "[BrandTrace Notice] DATABASE_URL points to localhost. "
-        "Falling back to SQLite. Configure DATABASE_URL in Render "
-        "to connect to your managed PostgreSQL database."
+        "[BrandTrace Notice] DATABASE_URL points to localhost in cloud environment. "
+        "Falling back to SQLite. Configure DATABASE_URL to connect to managed PostgreSQL."
     )
-    DATABASE_URL = "sqlite:///./brandtrace.db"
+    DATABASE_URL = _DEFAULT_SQLITE_URL
+    _is_fallback_sqlite = True
 
 if not DATABASE_URL:
     raise RuntimeError(
@@ -56,7 +62,7 @@ else:
         pool_pre_ping=True,
         pool_size=5,
         max_overflow=10,
-        connect_args={"client_encoding": "utf8", "connect_timeout": 3},
+        connect_args={"client_encoding": "utf8", "connect_timeout": 5},
     )
 
 SessionLocal = sessionmaker(
@@ -68,15 +74,28 @@ SessionLocal = sessionmaker(
 Base = declarative_base()
 
 
-def ensure_db_connected(max_retries: int = 2, retry_delay: float = 1.0):
+def get_active_engine():
+    """Return the currently bound SQLAlchemy engine (post startup fallback check)."""
+    return engine
+
+
+def get_db_info() -> dict:
+    """Return diagnostic summary of the active database connection."""
+    return {
+        "dialect": engine.dialect.name,
+        "fallback_sqlite": _is_fallback_sqlite,
+    }
+
+
+def ensure_db_connected(max_retries: int = 2, retry_delay: float = 1.5):
     """
-    Ensures DB connectivity at startup within a fast 5-7 second budget.
-    Attempts connection with retries using a 3s connect_timeout.
+    Ensures DB connectivity at startup within a bounded startup window.
+    Attempts connection with retries using a 5s connect_timeout.
     If remote PostgreSQL is unreachable or connection is refused,
-    gracefully and immediately falls back to local SQLite so the
-    FastAPI container starts up in under 7s and passes Render health checks.
+    gracefully falls back to a deterministic SQLite path so the
+    FastAPI container starts reliably and passes Render health checks.
     """
-    global engine, SessionLocal, DATABASE_URL, _is_sqlite
+    global engine, SessionLocal, DATABASE_URL, _is_sqlite, _is_fallback_sqlite
     import time
 
     if _is_sqlite:
@@ -97,11 +116,12 @@ def ensure_db_connected(max_retries: int = 2, retry_delay: float = 1.0):
 
     if not connected:
         print(
-            "[BrandTrace DB Fallback] Remote PostgreSQL unreachable within startup budget. "
-            "Immediately falling back to local SQLite 'sqlite:///./brandtrace.db' to ensure 100% service uptime."
+            f"[BrandTrace DB Fallback] Remote PostgreSQL unreachable within startup budget. "
+            f"Falling back to local SQLite '{_DEFAULT_SQLITE_URL}'."
         )
-        DATABASE_URL = "sqlite:///./brandtrace.db"
+        DATABASE_URL = _DEFAULT_SQLITE_URL
         _is_sqlite = True
+        _is_fallback_sqlite = True
         engine = create_engine(
             DATABASE_URL,
             connect_args={"check_same_thread": False},

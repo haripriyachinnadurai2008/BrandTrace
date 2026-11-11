@@ -52,13 +52,14 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
     try {
       setSwitchingRole(true);
       await api.demoLogin(targetRole.toLowerCase());
+      const canonicalRole = api.getRole();
       if (onRoleChange) {
-        onRoleChange(targetRole);
+        onRoleChange(canonicalRole);
       }
       showToast({
         type: 'info',
         title: 'Demo Role Switched',
-        message: `Session active as ${targetRole} via demo login.`,
+        message: `Session active as ${canonicalRole} via demo login.`,
       });
     } catch (err: any) {
       showToast({

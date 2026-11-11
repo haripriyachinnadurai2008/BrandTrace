@@ -202,18 +202,22 @@ export const TruthGraphView: React.FC<{ currentRole: UserRole }> = ({ currentRol
 
       {/* Error state with Retry button */}
       {error && (
-        <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-200 text-xs flex items-center justify-between gap-3 animate-in fade-in">
-          <div className="flex items-center space-x-2">
-            <AlertCircleIcon className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0" />
+        <div
+          role="alert"
+          className="backdrop-blur-md bg-amber-50/90 dark:bg-amber-950/35 border border-amber-300/80 dark:border-amber-800/70 rounded-2xl p-4 sm:p-5 flex items-center justify-between gap-3 animate-in fade-in"
+        >
+          <div className="flex items-center space-x-2.5 text-xs text-amber-900 dark:text-amber-200">
+            <AlertCircleIcon className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0" />
             <span className="font-medium">{error}</span>
           </div>
           <Button
             variant="outline"
             size="sm"
             onClick={loadFacts}
+            disabled={loading}
             className="shrink-0"
           >
-            Retry
+            {loading ? 'Retrying...' : 'Retry'}
           </Button>
         </div>
       )}

@@ -106,10 +106,73 @@ For non-quantitative claims (guarantees, superlatives) set type="claim", value_r
 Return ONLY valid JSON. No prose."""
 
 
-def call_llm(masked_text: str, db=None) -> list[dict]:
+def _deterministic_fallback(masked_text: str) -> list[dict]:
     """
-    Main entry point for LLM extraction.
-    Returns list of raw claim dicts with token references.
+    Deterministic regex/keyword extractor used when GROQ_API_KEY is absent
+    or when Groq API fails/times out. Never sends raw numbers externally.
+    """
+    lower_text = masked_text.lower()
+    fallback_claims: list[dict] = []
+    seen_refs: set[str] = set()
+
+    for tok in re.findall(r"\[PRICE_\d+\]", masked_text):
+        if tok in seen_refs:
+            continue
+        seen_refs.add(tok)
+        fallback_claims.append({
+            "type": "price",
+            "subject": "X1 Pro price" if "x1" in lower_text else "product price",
+            "attribute": "price",
+            "value_ref": tok,
+            "confidence": 0.92,
+        })
+
+    has_pct_context = any(w in lower_text for w in ("discount", "off", "save", "cashback"))
+    for tok in re.findall(r"\[PCT_\d+\]", masked_text):
+        if tok in seen_refs:
+            continue
+        seen_refs.add(tok)
+        fallback_claims.append({
+            "type": "percentage",
+            "subject": "Festive Launch offer" if has_pct_context else "promotional percentage",
+            "attribute": "discount",
+            "value_ref": tok,
+            "confidence": 0.90,
+        })
+
+    for tok in re.findall(r"\[DATE_\d+\]", masked_text):
+        if tok in seen_refs:
+            continue
+        seen_refs.add(tok)
+        fallback_claims.append({
+            "type": "date",
+            "subject": "offer end date",
+            "attribute": "valid_to",
+            "value_ref": tok,
+            "confidence": 0.88,
+        })
+
+    if "guarantee" in lower_text or "satisfaction" in lower_text:
+        fallback_claims.append({
+            "type": "claim",
+            "subject": "satisfaction guarantee",
+            "attribute": "guarantee",
+            "value_ref": None,
+            "confidence": 0.85,
+        })
+
+    return fallback_claims
+
+
+def call_llm_with_meta(masked_text: str, db=None) -> dict[str, Any]:
+    """
+    Main entry point for LLM extraction returning claims and source metadata:
+    {
+      "claims": list[dict],
+      "source": "cache" | "groq" | "fallback",
+      "ai_unavailable": bool,
+      "fallback_reason": Optional[str],
+    }
     Backend reattaches real values after this call.
     """
     key = _cache_key(masked_text)
@@ -121,7 +184,13 @@ def call_llm(masked_text: str, db=None) -> list[dict]:
         latency = int((time.monotonic() - t0) * 1000)
         _log_call(db, "groq", GROQ_ENDPOINT, latency, 200,
                   masked_text[:500], json.dumps(result), cached=True)
-        return result
+        no_key = not bool(settings.GROQ_API_KEY)
+        return {
+            "claims": result,
+            "source": "cache",
+            "ai_unavailable": no_key,
+            "fallback_reason": "GROQ_API_KEY not configured (using cached result)" if no_key else None,
+        }
 
     # 2. Pattern-based Cache hit
     lower_text = masked_text.lower()
@@ -130,49 +199,26 @@ def call_llm(masked_text: str, db=None) -> list[dict]:
             latency = int((time.monotonic() - t0) * 1000)
             _log_call(db, "groq", GROQ_ENDPOINT, latency, 200,
                       masked_text[:500], json.dumps(res), cached=True)
-            return res
+            no_key = not bool(settings.GROQ_API_KEY)
+            return {
+                "claims": res,
+                "source": "cache",
+                "ai_unavailable": no_key,
+                "fallback_reason": "GROQ_API_KEY not configured (using cached result)" if no_key else None,
+            }
 
-    # 3. No API key → fallback to heuristic extraction
+    # 3. No API key -> deterministic heuristic fallback
     if not settings.GROQ_API_KEY:
-        # Generate basic claims from tokens if present
-        fallback_claims = []
-        if "[PRICE_1]" in masked_text:
-            fallback_claims.append({
-                "type": "price",
-                "subject": "X1 Pro price" if "x1" in lower_text else "product price",
-                "attribute": "price",
-                "value_ref": "[PRICE_1]",
-                "confidence": 0.95
-            })
-        if "[PCT_1]" in masked_text and "discount" in lower_text or "off" in lower_text:
-            fallback_claims.append({
-                "type": "percentage",
-                "subject": "Festive Launch offer",
-                "attribute": "discount",
-                "value_ref": "[PCT_1]",
-                "confidence": 0.95
-            })
-        if "guarantee" in lower_text or "satisfaction" in lower_text:
-            fallback_claims.append({
-                "type": "claim",
-                "subject": "satisfaction guarantee",
-                "attribute": "guarantee",
-                "value_ref": None,
-                "confidence": 0.85
-            })
-        if "[DATE_1]" in masked_text:
-            fallback_claims.append({
-                "type": "date",
-                "subject": "offer end date",
-                "attribute": "valid_to",
-                "value_ref": "[DATE_1]",
-                "confidence": 0.90
-            })
-            
+        fallback_claims = _deterministic_fallback(masked_text)
         latency = int((time.monotonic() - t0) * 1000)
         _log_call(db, "groq", GROQ_ENDPOINT, latency, 200,
                   masked_text[:500], json.dumps(fallback_claims), cached=True)
-        return fallback_claims
+        return {
+            "claims": fallback_claims,
+            "source": "fallback",
+            "ai_unavailable": True,
+            "fallback_reason": "GROQ_API_KEY not configured (using deterministic fallback)",
+        }
 
     # 4. Live Groq call
     payload = {
@@ -193,7 +239,7 @@ def call_llm(masked_text: str, db=None) -> list[dict]:
                 "Content-Type": "application/json",
             },
             json=payload,
-            timeout=30.0,
+            timeout=20.0,
         )
         latency = int((time.monotonic() - t0) * 1000)
         resp.raise_for_status()
@@ -201,13 +247,29 @@ def call_llm(masked_text: str, db=None) -> list[dict]:
         raw_content = body["choices"][0]["message"]["content"]
         result = json.loads(raw_content)
         if not isinstance(result, list):
-            result = []
+            raise ValueError("Groq response is not a JSON list")
         _log_call(db, "groq", GROQ_ENDPOINT, latency, resp.status_code,
                   request_str, raw_content, cached=False)
         _EXTRACTION_CACHE[key] = result
-        return result
+        return {
+            "claims": result,
+            "source": "groq",
+            "ai_unavailable": False,
+            "fallback_reason": None,
+        }
     except Exception as exc:
         latency = int((time.monotonic() - t0) * 1000)
+        fallback_claims = _deterministic_fallback(masked_text)
         _log_call(db, "groq", GROQ_ENDPOINT, latency, 500,
-                  request_str, "", cached=False, error=str(exc))
-        return []
+                  request_str, json.dumps(fallback_claims), cached=False, error=str(exc))
+        return {
+            "claims": fallback_claims,
+            "source": "fallback",
+            "ai_unavailable": True,
+            "fallback_reason": f"Groq API unavailable ({exc.__class__.__name__})",
+        }
+
+
+def call_llm(masked_text: str, db=None) -> list[dict]:
+    """Backwards-compatible entry point returning raw claim dicts only."""
+    return call_llm_with_meta(masked_text, db=db)["claims"]

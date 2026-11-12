@@ -1076,28 +1076,28 @@ export const LandingPage: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <GlassCard className="p-6 space-y-3 border-purple-400/50 dark:border-purple-800">
               <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300">
-                <span>Core Engine (Delivered)</span>
+                <span>Currently Built (Verified)</span>
               </div>
               <h3 className="text-base font-bold text-slate-900 dark:text-white">Core Governance Engine</h3>
               <ul className="text-xs text-slate-600 dark:text-slate-300 space-y-1.5 list-disc list-inside">
-                <li>6 glassmorphic governance views</li>
-                <li>18 relational tables with atomic cascade</li>
-                <li>Deterministic normalizer &amp; token masker</li>
-                <li>Campaign coherence &amp; precedents</li>
-                <li>PostgreSQL trigger-enforced audit</li>
+                <li>Pre-tokenized claim verification &amp; fix options</li>
+                <li>Truth Graph (valid_from / valid_to) &amp; What-If preview</li>
+                <li>Atomic Change-Impact cascade &amp; CSV export</li>
+                <li>Numeric Campaign Coherence &amp; Precedents ledger</li>
+                <li>Trigger-enforced audit trail &amp; 4-role RBAC</li>
               </ul>
             </GlassCard>
 
             <GlassCard className="p-6 space-y-3">
               <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300">
-                <span>Round 3 — The Finish</span>
+                <span>Round 3 Target</span>
               </div>
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">PDF Evidence, Drift &amp; Approvals</h3>
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">PDF Evidence, Rule Synthesis &amp; Drift</h3>
               <ul className="text-xs text-slate-600 dark:text-slate-300 space-y-1.5 list-disc list-inside">
-                <li>PyMuPDF deep-linked evidence highlights</li>
-                <li>Live URL vs Truth Graph drift scanner</li>
-                <li>Rule-triggered multi-party sign-offs</li>
-                <li>Deterministic fallback &amp; resilient RBAC</li>
+                <li>PyMuPDF deep-linked PDF evidence highlights</li>
+                <li>Precedent-to-rule synthesizer &amp; approval workflow</li>
+                <li>Semantic cross-channel conflicts &amp; expiry forecasting</li>
+                <li>Per-role home dashboard &amp; deterministic fallback</li>
               </ul>
             </GlassCard>
 
@@ -1107,10 +1107,10 @@ export const LandingPage: React.FC = () => {
               </div>
               <h3 className="text-base font-bold text-slate-900 dark:text-white">Ecosystem Integration</h3>
               <ul className="text-xs text-slate-600 dark:text-slate-300 space-y-1.5 list-disc list-inside">
+                <li>Image, poster &amp; slide deck OCR ingestion</li>
                 <li>Google Docs &amp; Slack real-time sidecars</li>
-                <li>Figma copy plugin integration</li>
-                <li>Multilingual Indian regional normalization</li>
-                <li>Enterprise SSO &amp; SCIM user provisioning</li>
+                <li>Policy-approved auto-remediation triggers</li>
+                <li>Multilingual regional normalization</li>
               </ul>
             </GlassCard>
           </div>

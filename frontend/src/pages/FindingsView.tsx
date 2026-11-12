@@ -262,7 +262,7 @@ export const FindingsView: React.FC<{ currentRole: UserRole }> = ({ currentRole 
                 className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-200 border border-amber-300 dark:border-amber-800"
               >
                 <AlertTriangleIcon className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-                <span>AI unavailable, using cached/deterministic result</span>
+                <span>AI unavailable, using deterministic/cached result</span>
               </span>
             ) : (
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">

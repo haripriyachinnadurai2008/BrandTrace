@@ -200,7 +200,7 @@ def test_groq_timeout_falls_back_gracefully_with_meta(db_session, monkeypatch):
     )
     assert result["ai_unavailable"] is True
     assert result["extraction_source"] == "fallback"
-    assert result["ai_label"] == "AI unavailable, using cached/deterministic result"
+    assert result["ai_label"] == "AI unavailable, using deterministic/cached result"
     assert result["findings_count"] >= 1
 
 

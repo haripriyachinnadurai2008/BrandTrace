@@ -63,6 +63,16 @@ const AppContent: React.FC = () => {
   if (path === '/') {
     return (
       <>
+        {serverWaking && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="bg-amber-50/95 dark:bg-amber-950/90 border-b border-amber-200 dark:border-amber-800/80 text-amber-900 dark:text-amber-200 px-4 py-2 text-xs font-medium flex items-center justify-center gap-2"
+          >
+            <ClockIcon className="w-3.5 h-3.5 animate-spin text-amber-600 dark:text-amber-400 shrink-0" />
+            <span>Backend server is waking up (free tier takes ~30–50s)...</span>
+          </div>
+        )}
         {isMissingApiUrl && (
           <div className="bg-rose-600 text-white px-4 py-2.5 text-center text-xs sm:text-sm font-semibold shadow-md">
             ⚠️ Configuration Error: <code>VITE_API_BASE_URL</code> is not set in production.
@@ -78,6 +88,16 @@ const AppContent: React.FC = () => {
   if (path === '/login') {
     return (
       <>
+        {serverWaking && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="bg-amber-50/95 dark:bg-amber-950/90 border-b border-amber-200 dark:border-amber-800/80 text-amber-900 dark:text-amber-200 px-4 py-2 text-xs font-medium flex items-center justify-center gap-2"
+          >
+            <ClockIcon className="w-3.5 h-3.5 animate-spin text-amber-600 dark:text-amber-400 shrink-0" />
+            <span>Backend server is waking up (free tier takes ~30–50s)...</span>
+          </div>
+        )}
         {isMissingApiUrl && (
           <div className="bg-rose-600 text-white px-4 py-2.5 text-center text-xs sm:text-sm font-semibold shadow-md">
             ⚠️ Configuration Error: <code>VITE_API_BASE_URL</code> is not set in production.

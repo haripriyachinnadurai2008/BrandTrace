@@ -1,5 +1,5 @@
 # BrandTrace — Git for Brand Facts
-> **Round 2 Prototype** · Inkloom AI Brand Governance Challenge  
+> **Round 3 — The Finish** · Inkloom AI Brand Governance Challenge  
 > **Core Principle**: THE LLM EXTRACTS, THE BACKEND VERIFIES, HUMANS DECIDE.
 
 BrandTrace is a brand governance and truth verification platform designed to ensure enterprise marketing assets across every channel (social, email, brochures, webinars) stay strictly pinned to verified, sourced, and versioned brand facts.

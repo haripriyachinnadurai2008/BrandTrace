@@ -13,7 +13,6 @@ import {
   SparklesIcon,
   LogOutIcon,
   UserIcon,
-  LockIcon,
   XIcon,
 } from './Icons';
 
@@ -173,48 +172,40 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
           </div>
 
           <nav className="space-y-1">
-            {navItems.map(item => {
-              const Icon = item.icon;
-              const isActive = activeTab === item.id;
-              const isAllowed = item.allowedRoles.includes(currentRole);
+            {navItems
+              .filter(item => item.allowedRoles.includes(currentRole))
+              .map(item => {
+                const Icon = item.icon;
+                const isActive = activeTab === item.id;
 
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  disabled={!isAllowed}
-                  title={!isAllowed ? item.restrictedTip || 'Not available for your role' : item.desc}
-                  onClick={() => {
-                    if (isAllowed) handleTabClick(item.id);
-                  }}
-                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 ${
-                    !isAllowed
-                      ? 'text-slate-400 dark:text-slate-600 opacity-55 cursor-not-allowed'
-                      : isActive
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    title={item.desc}
+                    onClick={() => handleTabClick(item.id)}
+                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 ${
+                      isActive
                         ? 'bg-purple-600 text-white shadow-md shadow-purple-600/25 dark:bg-purple-600'
                         : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/80 dark:hover:bg-slate-900/60'
-                  }`}
-                >
-                  <div className="flex items-center space-x-3">
-                    <Icon
-                      className={`w-4 h-4 shrink-0 ${
-                        !isAllowed
-                          ? 'text-slate-400 dark:text-slate-600'
-                          : isActive
+                    }`}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <Icon
+                        className={`w-4 h-4 shrink-0 ${
+                          isActive
                             ? 'text-white'
                             : 'text-slate-500 dark:text-slate-400'
-                      }`}
-                    />
-                    <span className="tracking-tight text-left">{item.label}</span>
-                  </div>
-                  {!isAllowed ? (
-                    <LockIcon className="w-3.5 h-3.5 text-slate-400 dark:text-slate-600 shrink-0" />
-                  ) : isActive ? (
-                    <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse shrink-0" />
-                  ) : null}
-                </button>
-              );
-            })}
+                        }`}
+                      />
+                      <span className="tracking-tight text-left">{item.label}</span>
+                    </div>
+                    {isActive && (
+                      <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse shrink-0" />
+                    )}
+                  </button>
+                );
+              })}
           </nav>
         </div>
 

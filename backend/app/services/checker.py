@@ -400,7 +400,7 @@ def run_check(
         "findings_count": len(findings_out),
         "findings": findings_out,
         "ai_label": (
-            "AI unavailable, using cached/deterministic result"
+            "AI unavailable, using deterministic/cached result"
             if ai_unavailable
             else "AI-assisted analysis"
         ),

@@ -10,7 +10,7 @@ SQLite BEFORE-triggers replicate the PostgreSQL audit-log guards.
 """
 import os
 import pytest
-from datetime import datetime
+from datetime import datetime, timedelta
 from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import sessionmaker
 
@@ -152,6 +152,23 @@ def _seed(db):
                      category="Pricing", created_at=datetime(2026, 8, 25, 10, 30, 0, tzinfo=IST))
     db.add(fact)
 
+    # Fact F003 (expiring within 14 days, Part B)
+    now_fix = datetime.now(IST)
+    fact_f003 = BrandFact(id="F003", org_id="org_aura_audio", name="X1 Pro offer",
+                          category="Promotions", created_at=datetime(2026, 8, 25, 11, 0, 0, tzinfo=IST))
+    db.add(fact_f003)
+
+    fv_f003_v1 = FactVersion(
+        version_id="fv_f003_v1", fact_id="F003", version_no=1,
+        value="20% off", unit="%", normalised_value="20%",
+        valid_from=now_fix - timedelta(days=20),
+        valid_to=now_fix + timedelta(days=7),
+        status="approved",
+        approved_by="usr_admin_elena", approved_at=datetime(2026, 8, 28, 12, 30, 0, tzinfo=IST),
+        source_id="src_price_list_sep", source_page=2,
+        created_at=datetime(2026, 8, 28, 12, 30, 0, tzinfo=IST))
+    db.add(fv_f003_v1)
+
     # F001 v1 — valid_to set so it looks "superseded" in archive test
     v1 = FactVersion(
         version_id="fv_f001_v1", fact_id="F001", version_no=1,
@@ -167,21 +184,25 @@ def _seed(db):
     campaign = Campaign(
         id="camp_festive_launch", org_id="org_aura_audio", name="Festive Launch",
         description="Q4 Festive Launch", approved_offer="20% off launch discount",
+        declared_products='["X1 Pro"]',
         status="active", created_at=datetime(2026, 8, 30, 9, 0, 0, tzinfo=IST))
     db.add(campaign)
     db.add(CampaignFact(id="cf_festive_f001", campaign_id="camp_festive_launch",
                         fact_version_id="fv_f001_v1",
                         created_at=datetime(2026, 8, 30, 9, 0, 0, tzinfo=IST)))
+    db.add(CampaignFact(id="cf_festive_f003", campaign_id="camp_festive_launch",
+                        fact_version_id="fv_f003_v1",
+                        created_at=datetime(2026, 8, 30, 9, 0, 0, tzinfo=IST)))
 
     # 5 content pieces — (id, title, channel, state, text, pub_at, appr_at, arch_at, url)
     pieces = [
         ("ci_linkedin_launch", "LinkedIn Launch Post",    "linkedin",  "approved",
-         "Experience sound. X1 Pro at Rs 5,499. Guaranteed 100% satisfaction.",
+         "Experience sound redefined. The all-new X1 Pro is officially available starting at ₹5,499 across all retail outlets. Complimentary shipping on all orders. Always available year-round. Guaranteed 100% satisfaction. Grab yours today!",
          None,
          datetime(2026, 10, 15, 10, 0, 0, tzinfo=IST), None, None),
 
         ("ci_email_festive",   "Festive Email Campaign",  "email",     "approved",
-         "Get X1 Pro for Rs 4,999 with 20% off!",
+         "Festive Season Exclusive: Limited-time offer — get the flagship X1 Pro for only ₹4,999 with 20% off discount. Standard shipping charges apply at checkout. Upgrade your audio now!",
          None,
          datetime(2026, 10, 20, 14, 0, 0, tzinfo=IST), None, None),
 
@@ -251,6 +272,32 @@ def _seed(db):
                 span_start=off_span, span_end=off_span + 7,
                 extraction_confidence=0.97, masked_token="[PCT_1]",
                 created_at=datetime(2026, 9, 1, 0, 0, 0, tzinfo=IST)))
+            db.add(ClaimFactLink(
+                id="link_email_2_offer",
+                claim_id="claim_email_2",
+                fact_version_id="fv_f003_v1",
+                similarity_score=1.0,
+                link_type="auto",
+                status="verified",
+                created_at=datetime(2026, 9, 1, 0, 0, 0, tzinfo=IST)))
+        elif ci_id == "ci_brochure_pdf":
+            br_span = text_body.find("Rs 4,999")
+            db.add(ExtractedClaim(
+                id="claim_brochure_2", content_version_id=cv_id,
+                raw_span_text="20% off", normalised_value="20%",
+                value_type="percentage", is_approximate=False,
+                subject="Festive Launch offer", attribute="discount",
+                span_start=0, span_end=7,
+                extraction_confidence=0.97, masked_token="[PCT_1]",
+                created_at=datetime(2026, 9, 1, 0, 0, 0, tzinfo=IST)))
+            db.add(ClaimFactLink(
+                id="link_brochure_2_offer",
+                claim_id="claim_brochure_2",
+                fact_version_id="fv_f003_v1",
+                similarity_score=1.0,
+                link_type="auto",
+                status="verified",
+                created_at=datetime(2026, 9, 1, 0, 0, 0, tzinfo=IST)))
         elif ci_id == "ci_insta_poster":
             off_span = text_body.find("25% off")
             db.add(ExtractedClaim(
@@ -268,15 +315,17 @@ def _seed(db):
     db.add_all([r1, r2])
 
     p1 = Precedent(
-        id="prec_festive_override_01", rule_id="R001", reviewer_id="usr_reviewer_devin",
-        reason="Reviewed with executive marketing team: 30-day introductory price lock exception approved for initial launch window.",
-        finding_summary="Product price claim 'Rs 4,999' on LinkedIn Launch Post",
+        id="prec_festive_override_01", rule_id="R002", reviewer_id="usr_reviewer_devin",
+        reason="Satisfaction guarantee phrasing approved under standard consumer return policy window with marketing sign-off.",
+        finding_summary="Unverified satisfaction guarantee claim '100% satisfaction' on Q3 Promo Email",
+        finding_type="guarantee",
         resolution_action="override", timestamp=datetime(2026, 10, 15, 11, 0, 0, tzinfo=IST))
     p2 = Precedent(
         id="prec_festive_coherence_02", rule_id="R002", reviewer_id="usr_reviewer_devin",
-        reason="Promotional discount '20% off' cross-verified with Festive Launch campaign brief and authorized by CMO.",
-        finding_summary="Campaign offer claim '20% off' on Festive Email Campaign",
-        resolution_action="accepted", timestamp=datetime(2026, 10, 20, 15, 0, 0, tzinfo=IST))
+        reason="Satisfaction guarantee phrasing approved under standard consumer return policy window per CMO brief.",
+        finding_summary="Unverified guarantee claim 'Guaranteed satisfaction' on Autumn Product Flyer",
+        finding_type="guarantee",
+        resolution_action="dismissed", timestamp=datetime(2026, 10, 20, 15, 0, 0, tzinfo=IST))
     db.add_all([p1, p2])
 
     db.add(AuditLog(

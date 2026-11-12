@@ -43,6 +43,28 @@ def list_facts(
     facts = db.query(BrandFact).all()
     return facts
 
+
+@router.get("/expiry-forecast")
+def get_facts_expiry_forecast(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Improvement 2 — Part B: Expiry Forecasting.
+    For every non-superseded FactVersion with valid_to set, compute days_remaining,
+    risk_level ('high' <= 14d, 'medium' <= 30d, 'low' > 30d), and affected
+    approved/live content assets.
+    """
+    from app.services.expiry_forecast import build_expiry_forecast
+
+    agency_camp_id = (
+        (current_user.assigned_campaign_id or "")
+        if current_user.role == UserRole.AGENCY
+        else None
+    )
+    return build_expiry_forecast(db, agency_campaign_id=agency_camp_id)
+
+
 @router.get("/{fact_id}", response_model=BrandFactResponse)
 def get_fact(
     fact_id: str,

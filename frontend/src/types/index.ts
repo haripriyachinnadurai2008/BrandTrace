@@ -67,6 +67,8 @@ export interface Finding {
   fix_options?: FixOptions;
   claim_type?: string;
   claim_subject?: string | null;
+  matches_rule?: string | null;
+  matches_rule_version?: number | null;
   evidence_document_id?: string | null;
   evidence_page?: number | null;
   evidence_rects?: number[][] | null;
@@ -211,8 +213,105 @@ export interface Precedent {
   reviewer_id: string;
   reason: string;
   finding_summary: string;
+  finding_type?: string | null;
   resolution_action: string;
   timestamp: string;
+}
+
+export interface SemanticConflict {
+  id: string;
+  campaign_id: string;
+  asset_a: string;
+  asset_b: string;
+  asset_a_title: string;
+  asset_b_title: string;
+  channel_a: string;
+  channel_b: string;
+  snippet_a: string;
+  snippet_b: string;
+  snippets: {
+    snippet_a: string;
+    snippet_b: string;
+  };
+  reason: string;
+  confidence: number;
+  category: 'shipping' | 'eligibility' | 'duration' | 'discount' | 'claim' | string;
+  status: 'open' | 'approved' | 'dismissed';
+  fallback_used?: boolean;
+  decided_by?: string;
+  decided_at?: string;
+  decision_reason?: string;
+  created_at: string;
+}
+
+export interface SemanticCoherenceResponse {
+  campaign_id: string;
+  campaign_name: string;
+  pairs_evaluated?: number;
+  conflicts_count: number;
+  open_count?: number;
+  fallback_used: boolean;
+  ai_label?: string;
+  conflicts: SemanticConflict[];
+}
+
+export interface ExpiryForecastAsset {
+  content_id: string;
+  title: string;
+  channel: string;
+  state: string;
+  claim_text?: string;
+  publish_url?: string;
+}
+
+export interface ExpiryForecastItem {
+  fact_id: string;
+  fact_name: string;
+  category: string;
+  version_id: string;
+  version_no: number;
+  value: string;
+  valid_from: string;
+  valid_to: string | null;
+  days_remaining: number;
+  is_expired: boolean;
+  risk_level: 'high' | 'medium' | 'low';
+  affected_assets_count: number;
+  affected_assets: ExpiryForecastAsset[];
+}
+
+export interface ExpiryForecastResponse {
+  as_of_ist: string;
+  expiring_soon_count: number;
+  high_risk_count: number;
+  medium_risk_count: number;
+  low_risk_count: number;
+  items: ExpiryForecastItem[];
+}
+
+export interface Guideline {
+  id: string;
+  rule_id: string;
+  title?: string | null;
+  finding_type?: string | null;
+  version: number;
+  text: string;
+  active: boolean;
+  created_at: string;
+}
+
+export interface ProposedRule {
+  id: string;
+  title: string;
+  description: string;
+  suggested_policy_text: string;
+  finding_type: string;
+  status: 'proposed' | 'approved' | 'rejected' | string;
+  created_at: string;
+  decided_by?: string | null;
+  decided_at?: string | null;
+  supporting_precedents: Precedent[];
+  guidelines: Guideline[];
 }
 
 export interface AuditLog {

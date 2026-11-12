@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional, Any
+from typing import Optional, Any, List
 from datetime import datetime
 
 class AuditLogResponse(BaseModel):
@@ -24,11 +24,45 @@ class PrecedentResponse(BaseModel):
     reviewer_id: str
     reason: str
     finding_summary: str
+    finding_type: Optional[str] = None
     resolution_action: str
     timestamp: datetime
 
     class Config:
         from_attributes = True
+
+
+class GuidelineResponse(BaseModel):
+    id: str
+    rule_id: str
+    title: Optional[str] = None
+    finding_type: Optional[str] = None
+    version: int
+    text: str
+    active: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ProposedRuleResponse(BaseModel):
+    id: str
+    title: str
+    description: str
+    suggested_policy_text: str
+    finding_type: str
+    status: str
+    created_at: datetime
+    decided_by: Optional[str] = None
+    decided_at: Optional[datetime] = None
+    supporting_precedents: List[PrecedentResponse] = []
+    guidelines: List[GuidelineResponse] = []
+
+
+class RuleDecisionRequest(BaseModel):
+    policy_text: Optional[str] = None
+    reason: Optional[str] = None
 
 class NotificationResponse(BaseModel):
     id: str

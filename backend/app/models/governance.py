@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, Integer, Boolean, DateTime, ForeignKey, Text
+from sqlalchemy import Column, String, Integer, Float, Boolean, DateTime, ForeignKey, Text, JSON
 from sqlalchemy.orm import relationship
 from app.database import Base
 from app.config import IST
@@ -57,12 +57,65 @@ class Precedent(Base):
     reviewer_id = Column(String, ForeignKey("users.id"), nullable=False)
     reason = Column(Text, nullable=False)
     finding_summary = Column(Text, nullable=False)
+    finding_type = Column(String, nullable=True, default="claim")
     resolution_action = Column(String, nullable=False)  # override, dismissed, accepted
     timestamp = Column(DateTime(timezone=True), default=now_ist, nullable=False)
 
     rule = relationship("Rule", back_populates="precedents")
     finding = relationship("Finding", back_populates="precedents")
     reviewer = relationship("User")
+    rule_links = relationship("RulePrecedent", back_populates="precedent", cascade="all, delete-orphan")
+
+
+class ProposedRule(Base):
+    __tablename__ = "proposed_rules"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    title = Column(String, nullable=False)
+    description = Column(Text, nullable=False)
+    suggested_policy_text = Column(Text, nullable=False)
+    finding_type = Column(String, nullable=False, default="claim")
+    cluster_signature = Column(String, nullable=True)
+    status = Column(String, nullable=False, default="proposed")  # proposed, approved, rejected
+    created_at = Column(DateTime(timezone=True), default=now_ist, nullable=False)
+    decided_by = Column(String, ForeignKey("users.id"), nullable=True)
+    decided_at = Column(DateTime(timezone=True), nullable=True)
+
+    decider = relationship("User", foreign_keys=[decided_by])
+    precedent_links = relationship("RulePrecedent", back_populates="proposed_rule", cascade="all, delete-orphan")
+    guidelines = relationship(
+        "Guideline",
+        back_populates="proposed_rule",
+        cascade="all, delete-orphan",
+        order_by="Guideline.version.desc()",
+    )
+
+
+class RulePrecedent(Base):
+    __tablename__ = "rule_precedents"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    rule_id = Column(String, ForeignKey("proposed_rules.id", ondelete="CASCADE"), nullable=False)
+    precedent_id = Column(String, ForeignKey("precedents.id", ondelete="CASCADE"), nullable=False)
+    created_at = Column(DateTime(timezone=True), default=now_ist, nullable=False)
+
+    proposed_rule = relationship("ProposedRule", back_populates="precedent_links")
+    precedent = relationship("Precedent", back_populates="rule_links")
+
+
+class Guideline(Base):
+    __tablename__ = "guidelines"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    rule_id = Column(String, ForeignKey("proposed_rules.id", ondelete="CASCADE"), nullable=False)
+    title = Column(String, nullable=True)
+    finding_type = Column(String, nullable=True, default="claim")
+    version = Column(Integer, nullable=False, default=1)
+    text = Column(Text, nullable=False)
+    active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), default=now_ist, nullable=False)
+
+    proposed_rule = relationship("ProposedRule", back_populates="guidelines")
 
 class ExternalCallsLog(Base):
     __tablename__ = "external_calls_log"
@@ -76,3 +129,33 @@ class ExternalCallsLog(Base):
     response_payload = Column(Text, nullable=True)
     error_message = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), default=now_ist, nullable=False)
+
+
+class SemanticConflict(Base):
+    __tablename__ = "semantic_conflicts"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    campaign_id = Column(String, ForeignKey("campaigns.id", ondelete="CASCADE"), nullable=False)
+    asset_a = Column(String, ForeignKey("content_items.id", ondelete="CASCADE"), nullable=False)
+    asset_b = Column(String, ForeignKey("content_items.id", ondelete="CASCADE"), nullable=False)
+    asset_a_title = Column(String, nullable=False)
+    asset_b_title = Column(String, nullable=False)
+    channel_a = Column(String, nullable=False)
+    channel_b = Column(String, nullable=False)
+    snippet_a = Column(Text, nullable=False)
+    snippet_b = Column(Text, nullable=False)
+    snippets = Column(JSON, nullable=False)  # {"snippet_a": "...", "snippet_b": "..."}
+    reason = Column(Text, nullable=False)
+    confidence = Column(Float, nullable=False, default=0.8)
+    category = Column(String, nullable=False, default="claim")  # shipping, eligibility, duration, discount, claim
+    status = Column(String, nullable=False, default="open")  # open, approved, dismissed
+    fallback_used = Column(Boolean, nullable=False, default=False)
+    decided_by = Column(String, ForeignKey("users.id"), nullable=True)
+    decided_at = Column(DateTime(timezone=True), nullable=True)
+    decision_reason = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=now_ist, nullable=False)
+
+    campaign = relationship("Campaign")
+    content_item_a = relationship("ContentItem", foreign_keys=[asset_a])
+    content_item_b = relationship("ContentItem", foreign_keys=[asset_b])
+    decider = relationship("User", foreign_keys=[decided_by])

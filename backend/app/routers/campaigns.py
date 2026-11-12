@@ -126,3 +126,58 @@ def check_coherence(
         "has_contradictions": len(findings) > 0,
         "findings": findings,
     }
+
+
+@router.post("/{campaign_id}/semantic-check")
+def run_campaign_semantic_check(
+    campaign_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles([UserRole.ADMIN, UserRole.REVIEWER, UserRole.CREATOR])),
+):
+    """
+    Improvement 2 — Part A:
+    Cross-channel semantic conflict detection across pairs of campaign assets on different
+    channels. Tokenizes numbers before Groq, strictly validates verbatim snippets +
+    confidence >= 0.6, and falls back deterministically on Groq error/missing key.
+    RBAC: Admin, Reviewer, Creator allowed; Agency gets 403.
+    """
+    from app.services.semantic_coherence import run_semantic_coherence_check
+
+    campaign = db.query(Campaign).filter(Campaign.id == campaign_id).first()
+    if not campaign:
+        raise HTTPException(status_code=404, detail=f"Campaign '{campaign_id}' not found")
+
+    return run_semantic_coherence_check(
+        db=db,
+        campaign_id=campaign_id,
+        actor_id=current_user.id,
+        actor_role=current_user.role.value,
+    )
+
+
+@router.get("/{campaign_id}/semantic-conflicts")
+def get_campaign_semantic_conflicts(
+    campaign_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles([UserRole.ADMIN, UserRole.REVIEWER, UserRole.CREATOR])),
+):
+    """
+    List stored cross-channel semantic conflicts for a campaign.
+    RBAC: Admin, Reviewer, Creator may view; Agency gets 403.
+    """
+    from app.services.semantic_coherence import list_campaign_semantic_conflicts
+
+    campaign = db.query(Campaign).filter(Campaign.id == campaign_id).first()
+    if not campaign:
+        raise HTTPException(status_code=404, detail=f"Campaign '{campaign_id}' not found")
+
+    conflicts = list_campaign_semantic_conflicts(db, campaign_id)
+    fallback_used = any(bool(c.get("fallback_used")) for c in conflicts)
+    return {
+        "campaign_id": campaign_id,
+        "campaign_name": campaign.name,
+        "conflicts_count": len(conflicts),
+        "open_count": sum(1 for c in conflicts if c.get("status") == "open"),
+        "fallback_used": fallback_used,
+        "conflicts": conflicts,
+    }

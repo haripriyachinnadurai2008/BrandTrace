@@ -11,6 +11,7 @@ from app.models.auth import User, UserRole
 from app.models.content import ContentItem, ContentVersion
 from app.models.claims import Finding, ExtractedClaim, ClaimFactLink
 from app.models.facts import BrandFact, FactVersion
+from app.services.rule_synthesizer import classify_finding_type, find_matching_active_guideline
 from app.models.governance import Review, Notification
 from app.models.audit import AuditLog
 from app.auth.guards import get_current_user, require_roles
@@ -179,6 +180,15 @@ def get_content_detail(
                             if matching_fv:
                                 fv = matching_fv
 
+            ftype = classify_finding_type(finding=f, claim=c, summary_text=f.reason)
+            matched_guideline = find_matching_active_guideline(
+                db,
+                finding_type=ftype,
+                claim_text=c.raw_span_text if c else "",
+                subject=c.subject if c else "",
+                reason_text=f.reason or "",
+            )
+
             findings_out.append({
                 "id": f.id,
                 "content_version_id": f.content_version_id,
@@ -197,6 +207,8 @@ def get_content_detail(
                 "verified_value": fv.value if fv else None,
                 "fact_id": bf.id if bf else (fv.fact_id if fv else None),
                 "fact_name": bf.name if bf else None,
+                "matches_rule": matched_guideline["title"] if matched_guideline else None,
+                "matches_rule_version": matched_guideline["version"] if matched_guideline else None,
                 "evidence_document_id": c.evidence_document_id if c else None,
                 "evidence_page": c.evidence_page if c else None,
                 "evidence_rects": c.evidence_rects if c else None,

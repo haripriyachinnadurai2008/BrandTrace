@@ -41,6 +41,10 @@ from app.services.pdf_evidence import (
     locate_evidence_in_pdf,
     resolve_pdf_path,
 )
+from app.services.rule_synthesizer import (
+    classify_finding_type,
+    find_matching_active_guideline,
+)
 
 
 def _sha256(text: str) -> str:
@@ -372,6 +376,15 @@ def run_check(
             else None
         )
 
+        ftype = classify_finding_type(finding=finding, claim=claim, summary_text=result.reason)
+        matched_guideline = find_matching_active_guideline(
+            db,
+            finding_type=ftype,
+            claim_text=raw_span,
+            subject=effective_subject,
+            reason_text=result.reason,
+        )
+
         findings_out.append({
             "finding_id": finding.id,
             "claim_id": claim.id,
@@ -394,6 +407,8 @@ def run_check(
             "is_approximate": entity.is_approximate,
             "fix_options": result.fix_options,
             "claim_type": claim_type,
+            "matches_rule": matched_guideline["title"] if matched_guideline else None,
+            "matches_rule_version": matched_guideline["version"] if matched_guideline else None,
             "evidence_document_id": claim.evidence_document_id,
             "evidence_page": claim.evidence_page,
             "evidence_rects": claim.evidence_rects,

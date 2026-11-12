@@ -77,16 +77,21 @@ export const EvidenceViewerPanel: React.FC<EvidenceViewerPanelProps> = ({
         let loc: EvidenceLocateResponse | null = locateData;
 
         if (refreshLocate || !loc) {
-          loc = await api.locateEvidence(documentId, finding.claim_id, finding.finding_id);
-          setLocateData(loc);
-          if (loc.page_count && loc.page_count > 0) {
-            setPageCount(loc.page_count);
+          const freshLoc: EvidenceLocateResponse = await api.locateEvidence(
+            documentId,
+            finding.claim_id,
+            finding.finding_id
+          );
+          loc = freshLoc;
+          setLocateData(freshLoc);
+          if (freshLoc.page_count && freshLoc.page_count > 0) {
+            setPageCount(freshLoc.page_count);
           }
-          if (refreshLocate && loc.located && loc.evidence_page) {
-            effectivePage = loc.evidence_page;
-            setCurrentPage(loc.evidence_page);
-          } else if (loc.page_count && effectivePage > loc.page_count) {
-            effectivePage = loc.page_count;
+          if (refreshLocate && freshLoc.located && freshLoc.evidence_page) {
+            effectivePage = freshLoc.evidence_page;
+            setCurrentPage(freshLoc.evidence_page);
+          } else if (freshLoc.page_count && effectivePage > freshLoc.page_count) {
+            effectivePage = freshLoc.page_count;
             setCurrentPage(effectivePage);
           }
         }

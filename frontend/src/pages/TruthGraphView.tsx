@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api/client';
-import { BrandFact, UserRole, FactImpactResponse } from '../types';
+import { BrandFact, UserRole, FactImpactResponse, ExpiryForecastResponse, ExpiryForecastItem } from '../types';
 import { GlassCard } from '../components/common/GlassCard';
 import { Button } from '../components/common/Button';
 import { Skeleton } from '../components/common/Skeleton';
@@ -14,7 +14,9 @@ import {
   ArrowRightIcon,
   LockIcon,
   AlertCircleIcon,
+  AlertTriangleIcon,
   UploadIcon,
+  ChevronRightIcon,
 } from '../components/Icons';
 
 export const TruthGraphView: React.FC<{ currentRole: UserRole }> = ({ currentRole }) => {
@@ -38,6 +40,10 @@ export const TruthGraphView: React.FC<{ currentRole: UserRole }> = ({ currentRol
   const [previewData, setPreviewData] = useState<FactImpactResponse | null>(null);
   const [submitting, setSubmitting] = useState<boolean>(false);
 
+  // Expiry Forecast state (Improvement 2 — Part B)
+  const [forecast, setForecast] = useState<ExpiryForecastResponse | null>(null);
+  const [expandedFactIds, setExpandedFactIds] = useState<Record<string, boolean>>({});
+
   // Evidence PDF upload state
   const [uploadingPdf, setUploadingPdf] = useState<boolean>(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -52,14 +58,16 @@ export const TruthGraphView: React.FC<{ currentRole: UserRole }> = ({ currentRol
     try {
       setLoading(true);
       setError(null);
-      const [factsData, sourcesData] = await Promise.all([
+      const [factsData, sourcesData, forecastData] = await Promise.all([
         api.getFacts(),
-        api.getEvidenceSources().catch(() => [])
+        api.getEvidenceSources().catch(() => []),
+        api.getExpiryForecast().catch(() => null),
       ]);
 
       const safeFacts = factsData || [];
       setFacts(safeFacts);
       setEvidenceSources(sourcesData || []);
+      setForecast(forecastData);
 
       if (sourcesData && sourcesData.length > 0) {
         const decSrc = sourcesData.find((s: any) => s.id === 'src_price_list_dec');
@@ -161,6 +169,56 @@ export const TruthGraphView: React.FC<{ currentRole: UserRole }> = ({ currentRol
     !isUnchangedValue
   );
 
+  // Map forecast items by fact_id for fast lookup
+  const forecastByFactId = React.useMemo(() => {
+    const map: Record<string, ExpiryForecastItem> = {};
+    if (forecast?.items) {
+      for (const it of forecast.items) {
+        if (!map[it.fact_id]) {
+          map[it.fact_id] = it;
+        }
+      }
+    }
+    return map;
+  }, [forecast]);
+
+  const toggleExpandAssets = (factId: string) => {
+    setExpandedFactIds(prev => ({ ...prev, [factId]: !prev[factId] }));
+  };
+
+  const getRiskBadge = (item?: ExpiryForecastItem) => {
+    if (!item || !item.valid_to) {
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+          No expiry set
+        </span>
+      );
+    }
+    const days = item.days_remaining;
+    if (item.risk_level === 'high') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-500/15 text-rose-800 dark:text-rose-300 border border-rose-300 dark:border-rose-800">
+          <AlertCircleIcon className="w-3 h-3" />
+          <span>Valid until {new Date(item.valid_to).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' })} ({days <= 0 ? 'Expired' : `${days}d left`} · High risk)</span>
+        </span>
+      );
+    }
+    if (item.risk_level === 'medium') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
+          <AlertTriangleIcon className="w-3 h-3" />
+          <span>Valid until {new Date(item.valid_to).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' })} ({days}d left · Medium risk)</span>
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+        <CheckCircleIcon className="w-3 h-3" />
+        <span>Valid until {new Date(item.valid_to).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' })} ({days}d left)</span>
+      </span>
+    );
+  };
+
   const handlePreviewImpact = async () => {
     if (!isAdmin || !selectedFact || !isFormValid) return;
     try {
@@ -230,6 +288,45 @@ export const TruthGraphView: React.FC<{ currentRole: UserRole }> = ({ currentRol
         </div>
       </GlassCard>
 
+      {/* Expiry Forecast Banner (Part B) */}
+      {forecast && (
+        <GlassCard className="p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-3 border-purple-200/80 dark:border-purple-800/80">
+          <div className="flex items-center space-x-3">
+            <div className="p-2.5 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400">
+              <SparklesIcon className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                  Fact Expiry Forecasting
+                </h3>
+                {forecast.expiring_soon_count > 0 ? (
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-500/15 text-rose-800 dark:text-rose-300 border border-rose-300 dark:border-rose-800">
+                    {forecast.expiring_soon_count} Expiring soon (&le; 30d)
+                  </span>
+                ) : (
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                    No facts expiring soon
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Tracks temporal expiration of brand facts and automatically surfaces active collateral citing soon-to-expire terms.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 text-xs">
+            <span className="px-2.5 py-1 rounded-lg bg-rose-500/10 text-rose-700 dark:text-rose-300 font-mono font-bold border border-rose-300 dark:border-rose-800">
+              {forecast.high_risk_count} High risk (&le;14d)
+            </span>
+            <span className="px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-700 dark:text-amber-300 font-mono font-bold border border-amber-300 dark:border-amber-800">
+              {forecast.medium_risk_count} Medium (&le;30d)
+            </span>
+          </div>
+        </GlassCard>
+      )}
+
       {/* Error state with Retry button */}
       {error && (
         <div
@@ -263,12 +360,60 @@ export const TruthGraphView: React.FC<{ currentRole: UserRole }> = ({ currentRol
         {/* Left: Fact Version Timeline */}
         <div className="lg:col-span-7 space-y-4">
           <GlassCard className="p-5">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-200/60 dark:border-slate-800/60">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                {selectedFact ? `Fact Timeline History: ${selectedFact.name} (${selectedFact.id})` : 'Fact Timeline History'}
-              </span>
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200/60 dark:border-slate-800/60 flex-wrap gap-2">
+              <div className="flex items-center space-x-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  {selectedFact ? `Fact Timeline History: ${selectedFact.name} (${selectedFact.id})` : 'Fact Timeline History'}
+                </span>
+                {selectedFact && getRiskBadge(forecastByFactId[selectedFact.id])}
+              </div>
               <span className="text-xs font-mono text-slate-400">Asia/Kolkata (IST)</span>
             </div>
+
+            {/* Expandable Affected Assets list if fact has expiry forecast */}
+            {selectedFact && forecastByFactId[selectedFact.id] && (
+              <div className="mt-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200/80 dark:border-slate-800 text-xs">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 font-semibold text-slate-800 dark:text-slate-200">
+                    <span>Active citing collateral:</span>
+                    <strong className="text-purple-600 dark:text-purple-400 font-mono">
+                      {forecastByFactId[selectedFact.id].affected_assets_count} approved/live asset(s)
+                    </strong>
+                  </div>
+                  {forecastByFactId[selectedFact.id].affected_assets_count > 0 && (
+                    <button
+                      onClick={() => toggleExpandAssets(selectedFact.id)}
+                      className="text-purple-600 dark:text-purple-400 hover:underline font-semibold flex items-center gap-0.5"
+                    >
+                      <span>{expandedFactIds[selectedFact.id] ? 'Hide affected assets' : 'Show affected assets'}</span>
+                      <ChevronRightIcon className={`w-3.5 h-3.5 transition-transform ${expandedFactIds[selectedFact.id] ? 'rotate-90' : ''}`} />
+                    </button>
+                  )}
+                </div>
+
+                {expandedFactIds[selectedFact.id] && forecastByFactId[selectedFact.id].affected_assets_count > 0 && (
+                  <div className="mt-3 space-y-2 border-t border-slate-200/60 dark:border-slate-800/60 pt-2.5">
+                    {forecastByFactId[selectedFact.id].affected_assets.map(asset => (
+                      <div
+                        key={asset.content_id}
+                        className="p-2.5 rounded-lg bg-white/70 dark:bg-slate-950/60 border border-slate-200/60 dark:border-slate-800 flex items-center justify-between text-xs"
+                      >
+                        <div className="space-y-0.5">
+                          <div className="font-bold text-slate-900 dark:text-white">{asset.title}</div>
+                          <div className="text-[11px] text-slate-500 flex items-center gap-2">
+                            <span>Channel: <strong className="font-mono">{asset.channel}</strong></span>
+                            {asset.claim_text && <span>Citing claim: &quot;{asset.claim_text}&quot;</span>}
+                          </div>
+                        </div>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold font-mono uppercase bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                          {asset.state}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {loading ? (
               <div className="py-8 space-y-3">

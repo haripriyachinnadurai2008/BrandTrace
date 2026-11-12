@@ -670,6 +670,34 @@ class ApiClient {
     return this.request<any>(`/campaigns/${campaignId}/check-coherence`, { method: 'POST' });
   }
 
+  // Semantic Campaign Conflicts (Improvement 2)
+  runSemanticCheck(campaignId: string) {
+    return this.request<any>(`/campaigns/${campaignId}/semantic-check`, { method: 'POST' });
+  }
+
+  getSemanticConflicts(campaignId: string) {
+    return this.request<any>(`/campaigns/${campaignId}/semantic-conflicts`);
+  }
+
+  dismissSemanticConflict(conflictId: string, reason: string) {
+    return this.request<any>(`/semantic-conflicts/${encodeURIComponent(conflictId)}/dismiss`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    });
+  }
+
+  approveSemanticConflict(conflictId: string, reason?: string) {
+    return this.request<any>(`/semantic-conflicts/${encodeURIComponent(conflictId)}/approve`, {
+      method: 'POST',
+      body: JSON.stringify({ reason: reason || 'Approved cross-channel alignment fix' }),
+    });
+  }
+
+  // Expiry Forecast (Improvement 2)
+  getExpiryForecast() {
+    return this.request<any>('/facts/expiry-forecast');
+  }
+
   // Findings
   dismissFinding(findingId: string, reason: string, resolutionAction: string = 'dismissed') {
     return this.request<any>(`/findings/${findingId}/dismiss`, {
@@ -678,9 +706,31 @@ class ApiClient {
     });
   }
 
-  // Precedents
+  // Precedents & Rules
   getPrecedents() {
     return this.request<any[]>('/precedents');
+  }
+
+  getProposedRules() {
+    return this.request<any[]>('/rules/proposed');
+  }
+
+  getActiveGuidelines(activeOnly: boolean = true) {
+    return this.request<any[]>(`/rules/guidelines?active_only=${activeOnly}`);
+  }
+
+  approveProposedRule(ruleId: string, payload?: { policy_text?: string; reason?: string }) {
+    return this.request<any>(`/rules/${encodeURIComponent(ruleId)}/approve`, {
+      method: 'POST',
+      body: JSON.stringify(payload || {}),
+    });
+  }
+
+  rejectProposedRule(ruleId: string, payload?: { reason?: string }) {
+    return this.request<any>(`/rules/${encodeURIComponent(ruleId)}/reject`, {
+      method: 'POST',
+      body: JSON.stringify(payload || {}),
+    });
   }
 
   // Audit

@@ -19,6 +19,8 @@ from app.routers import auth, facts, content, audit, campaigns, precedents, sour
 from app.routers import findings as findings_router
 from app.routers import notifications as notifications_router
 from app.routers import evidence as evidence_router
+from app.routers import rules as rules_router
+from app.routers import semantic_conflicts as semantic_conflicts_router
 
 
 def ensure_demo_dataset_seeded(db, active_engine) -> bool:
@@ -152,6 +154,8 @@ app.include_router(notifications_router.router)
 app.include_router(audit.router)
 app.include_router(campaigns.router)
 app.include_router(precedents.router)
+app.include_router(rules_router.router)
+app.include_router(semantic_conflicts_router.router)
 app.include_router(sources.router)
 app.include_router(evidence_router.router)
 

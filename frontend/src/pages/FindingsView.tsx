@@ -160,6 +160,8 @@ export const FindingsView: React.FC<{ currentRole: UserRole }> = ({ currentRole 
           fact_name: f.fact_name ?? null,
           claim_subject: f.claim_subject ?? null,
           claim_type: f.claim_type || 'text',
+          matches_rule: f.matches_rule ?? null,
+          matches_rule_version: f.matches_rule_version ?? null,
           fix_options: f.fix_options,
           evidence_document_id: f.evidence_document_id ?? null,
           evidence_page: f.evidence_page ?? null,
@@ -249,17 +251,25 @@ export const FindingsView: React.FC<{ currentRole: UserRole }> = ({ currentRole 
   };
 
   const handleDismissFinding = async () => {
-    if (!dismissFindingId || !dismissReason.trim()) return;
+    if (!dismissFindingId || dismissReason.trim().length < 10) return;
     try {
       setDismissLoading(true);
       setError(null);
-      await api.dismissFinding(dismissFindingId, dismissReason, 'dismissed');
-      const msg = 'Finding dismissed and logged to Precedents.';
+      const res = await api.dismissFinding(dismissFindingId, dismissReason.trim(), 'dismissed');
+      const createdRules: any[] = res?.proposed_rules_created || [];
+      const msg =
+        createdRules.length > 0
+          ? `Precedent logged & new Proposed Rule synthesized: "${createdRules[0].title}". Admin can now approve it on the Precedents page.`
+          : 'Finding dismissed and logged to Precedents.';
       setSuccessMsg(msg);
-      showToast({ type: 'info', title: 'Precedent Logged', message: msg });
+      showToast({
+        type: createdRules.length > 0 ? 'success' : 'info',
+        title: createdRules.length > 0 ? 'Proposed Rule Synthesized' : 'Precedent Logged',
+        message: msg,
+      });
       setDismissFindingId(null);
       setDismissReason('');
-      handleRunCheck();
+      await loadDetail(selectedId, checkMetaById[selectedId]);
     } catch (err: any) {
       const msg = err.message || 'Failed to dismiss finding';
       setError(msg);
@@ -513,6 +523,16 @@ export const FindingsView: React.FC<{ currentRole: UserRole }> = ({ currentRole 
                         <ConfidenceBar confidence={f.extraction_confidence} />
                       </div>
 
+                      {f.matches_rule && (
+                        <div className="mt-2.5 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-400/40">
+                          <SparklesIcon className="w-3.5 h-3.5 shrink-0" />
+                          <span>
+                            Matches approved rule: <strong>{f.matches_rule}</strong>
+                            {f.matches_rule_version ? ` (v${f.matches_rule_version})` : ''}
+                          </span>
+                        </div>
+                      )}
+
                       {/* Reason & Evidence Excerpt */}
                       <div className="mt-3 text-xs sm:text-sm text-slate-700 dark:text-slate-300">
                         <p className="font-medium">{f.reason}</p>
@@ -638,6 +658,22 @@ export const FindingsView: React.FC<{ currentRole: UserRole }> = ({ currentRole 
               rows={4}
               className="w-full p-3 border border-slate-300 dark:border-slate-700 rounded-xl text-xs sm:text-sm bg-white/90 dark:bg-slate-950/90 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
             />
+            <div className="flex items-center justify-between text-[11px]">
+              <span
+                className={
+                  dismissReason.trim().length < 10
+                    ? 'text-amber-600 dark:text-amber-400 font-medium'
+                    : 'text-emerald-600 dark:text-emerald-400 font-medium'
+                }
+              >
+                {dismissReason.trim().length === 0
+                  ? 'Justification required (minimum 10 characters).'
+                  : dismissReason.trim().length < 10
+                  ? `Too short: enter at least ${10 - dismissReason.trim().length} more character(s).`
+                  : 'Justification meets audit minimum.'}
+              </span>
+              <span className="font-mono text-slate-400">{dismissReason.trim().length} / 10</span>
+            </div>
 
             <div className="flex justify-end space-x-2 pt-2">
               <Button

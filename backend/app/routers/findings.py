@@ -11,7 +11,7 @@ import uuid
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional
 
 from app.database import get_db
@@ -22,6 +22,11 @@ from app.models.governance import Precedent, Rule
 from app.models.audit import AuditLog
 from app.auth.guards import get_current_user, require_roles
 from app.config import IST
+from app.services.rule_synthesizer import (
+    classify_finding_type,
+    find_matching_active_guideline,
+    synthesize_proposed_rules,
+)
 
 router = APIRouter(prefix="/findings", tags=["Findings"])
 
@@ -32,6 +37,14 @@ class DismissRequest(BaseModel):
         default="dismissed",
         description="override | dismissed | accepted",
     )
+
+    @field_validator("reason")
+    @classmethod
+    def _reason_must_be_meaningful(cls, v: str) -> str:
+        cleaned = (v or "").strip()
+        if len(cleaned) < 10:
+            raise ValueError("Justification must be at least 10 characters.")
+        return cleaned
 
 
 @router.get("/{finding_id}")
@@ -66,6 +79,17 @@ def get_finding(
             if fv:
                 bf = db.query(BrandFact).filter(BrandFact.id == fv.fact_id).first()
 
+    matched_guideline = None
+    if claim:
+        ftype = classify_finding_type(finding=finding, claim=claim, summary_text=finding.reason)
+        matched_guideline = find_matching_active_guideline(
+            db,
+            finding_type=ftype,
+            claim_text=claim.raw_span_text or "",
+            subject=claim.subject or "",
+            reason_text=finding.reason or "",
+        )
+
     return {
         "id": finding.id,
         "content_version_id": finding.content_version_id,
@@ -82,6 +106,8 @@ def get_finding(
         "verified_value": fv.value if fv else None,
         "fact_id": bf.id if bf else (fv.fact_id if fv else None),
         "fact_name": bf.name if bf else None,
+        "matches_rule": matched_guideline["title"] if matched_guideline else None,
+        "matches_rule_version": matched_guideline["version"] if matched_guideline else None,
         "evidence_document_id": claim.evidence_document_id if claim else None,
         "evidence_page": claim.evidence_page if claim else None,
         "evidence_rects": claim.evidence_rects if claim else None,
@@ -131,6 +157,14 @@ def dismiss_finding(
         db.add(rule)
         db.flush()
 
+    claim = db.query(ExtractedClaim).filter(ExtractedClaim.id == finding.claim_id).first()
+    ftype = classify_finding_type(
+        finding=finding,
+        claim=claim,
+        summary_text=finding.reason,
+        reason_text=payload.reason,
+    )
+
     precedent = Precedent(
         id=str(uuid.uuid4()),
         rule_id=rule.id,
@@ -138,6 +172,7 @@ def dismiss_finding(
         reviewer_id=current_user.id,
         reason=payload.reason,
         finding_summary=finding.reason[:300],
+        finding_type=ftype,
         resolution_action=payload.resolution_action,
         timestamp=now,
     )
@@ -155,6 +190,13 @@ def dismiss_finding(
         reason=payload.reason,
         created_at=now,
     ))
+    db.flush()
+
+    created_rules = synthesize_proposed_rules(
+        db=db,
+        actor_id=current_user.id,
+        actor_role=current_user.role.value,
+    )
 
     db.commit()
 
@@ -163,5 +205,9 @@ def dismiss_finding(
         "finding_id": finding.id,
         "new_status": finding.status,
         "precedent_id": precedent.id,
+        "proposed_rules_created": [
+            {"id": r.id, "title": r.title, "finding_type": r.finding_type}
+            for r in created_rules
+        ],
     }
 

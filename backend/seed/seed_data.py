@@ -1,5 +1,5 @@
 import hashlib
-from datetime import datetime
+from datetime import datetime, timedelta
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.config import IST
@@ -10,7 +10,7 @@ from app.models.facts import EvidenceSource, BrandFact, FactVersion
 from app.models.campaign import Campaign, CampaignFact
 from app.models.content import ContentItem, ContentVersion
 from app.models.claims import ExtractedClaim, ClaimFactLink, Finding
-from app.models.governance import Rule, Precedent, Notification
+from app.models.governance import Rule, Precedent, Notification, ProposedRule, Guideline
 from app.models.audit import AuditLog
 
 def hash_text(text: str) -> str:
@@ -160,6 +160,34 @@ def seed_database(db: Session = None, target_engine = None, reset: bool = False)
             created_at=datetime(2026, 8, 28, 12, 0, 0, tzinfo=IST)
         ))
 
+        # 4b. Brand Fact F003 & Version v1 (Expiring within 14 days — Part B Seed Data)
+        now_seed = datetime.now(IST)
+        fact_f003, _ = _ensure_row(db, BrandFact, "id", BrandFact(
+            id="F003",
+            org_id=org.id,
+            name="X1 Pro offer",
+            category="Promotions",
+            created_at=datetime(2026, 8, 25, 11, 0, 0, tzinfo=IST)
+        ))
+
+        f003_v1, _ = _ensure_row(db, FactVersion, "version_id", FactVersion(
+            version_id="fv_f003_v1",
+            fact_id=fact_f003.id,
+            version_no=1,
+            value="20% off",
+            unit="%",
+            normalised_value="20%",
+            valid_from=now_seed - timedelta(days=23),
+            valid_to=now_seed + timedelta(days=7),
+            status="approved",
+            approved_by=admin.id,
+            approved_at=datetime(2026, 8, 28, 12, 30, 0, tzinfo=IST),
+            source_id=source.id,
+            source_page=2,
+            supersedes_version_id=None,
+            created_at=datetime(2026, 8, 28, 12, 30, 0, tzinfo=IST)
+        ))
+
         # 5. Campaign "Festive Launch"
         campaign, _ = _ensure_row(db, Campaign, "id", Campaign(
             id="camp_festive_launch",
@@ -167,15 +195,25 @@ def seed_database(db: Session = None, target_engine = None, reset: bool = False)
             name="Festive Launch",
             description="Q4 Festive Launch Campaign featuring X1 Pro introductory offers",
             approved_offer="20% off launch discount",
+            declared_products='["X1 Pro"]',
             status="active",
             created_at=datetime(2026, 8, 30, 9, 0, 0, tzinfo=IST)
         ))
+        if not campaign.declared_products:
+            campaign.declared_products = '["X1 Pro"]'
 
         _ensure_row(db, CampaignFact, "id", CampaignFact(
             id="cf_festive_f001",
             campaign_id=campaign.id,
             fact_version_id=f001_v1.version_id,
             notes="Standard retail launch price",
+            created_at=datetime(2026, 8, 30, 9, 0, 0, tzinfo=IST)
+        ))
+        _ensure_row(db, CampaignFact, "id", CampaignFact(
+            id="cf_festive_f003",
+            campaign_id=campaign.id,
+            fact_version_id=f003_v1.version_id,
+            notes="Expiring festive bundle discount",
             created_at=datetime(2026, 8, 30, 9, 0, 0, tzinfo=IST)
         ))
 
@@ -210,7 +248,7 @@ def seed_database(db: Session = None, target_engine = None, reset: bool = False)
             created_at=datetime(2026, 10, 10, 10, 0, 0, tzinfo=IST)
         ))
         if created_p1:
-            text_linkedin = "Experience sound redefined. The all-new X1 Pro is officially available starting at ₹5,499 across all retail outlets. Guaranteed 100% satisfaction. Grab yours today!"
+            text_linkedin = "Experience sound redefined. The all-new X1 Pro is officially available starting at ₹5,499 across all retail outlets. Complimentary shipping on all orders. Always available year-round. Guaranteed 100% satisfaction. Grab yours today!"
             cv_linkedin = ContentVersion(
                 version_id="cv_linkedin_v1",
                 content_id=ci_linkedin.id,
@@ -259,7 +297,7 @@ def seed_database(db: Session = None, target_engine = None, reset: bool = False)
             created_at=datetime(2026, 10, 12, 11, 0, 0, tzinfo=IST)
         ))
         if created_p2:
-            text_email = "Festive Season Exclusive: Get the flagship X1 Pro for only ₹4,999 with our limited-time 20% off discount. Upgrade your audio now!"
+            text_email = "Festive Season Exclusive: Limited-time offer — get the flagship X1 Pro for only ₹4,999 with 20% off discount. Standard shipping charges apply at checkout. Upgrade your audio now!"
             cv_email = ContentVersion(
                 version_id="cv_email_v1",
                 content_id=ci_email.id,
@@ -386,7 +424,7 @@ def seed_database(db: Session = None, target_engine = None, reset: bool = False)
             created_at=datetime(2026, 9, 8, 9, 0, 0, tzinfo=IST)
         ))
         if created_p4:
-            text_brochure = "Aura X1 Pro Technical Specifications and Pricing Guide. Retail Price: ₹4,999 incl. GST. Battery: 36h playback with ANC enabled."
+            text_brochure = "Aura X1 Pro Technical Specifications and Pricing Guide. Retail Price: ₹4,999 incl. GST with 20% off Festive Launch offer. Battery: 36h playback with ANC enabled."
             cv_brochure = ContentVersion(
                 version_id="cv_brochure_v1",
                 content_id=ci_brochure.id,
@@ -424,6 +462,54 @@ def seed_database(db: Session = None, target_engine = None, reset: bool = False)
                 created_at=datetime(2026, 9, 8, 9, 0, 0, tzinfo=IST)
             )
             db.add_all([cv_brochure, claim_brochure, link_brochure])
+
+        # Link >= 2 live/approved assets to expiring fact F003 idempotently
+        if db.query(ExtractedClaim).filter(ExtractedClaim.id == "claim_email_2").first():
+            _ensure_row(db, ClaimFactLink, "id", ClaimFactLink(
+                id="link_email_2_offer",
+                claim_id="claim_email_2",
+                fact_version_id=f003_v1.version_id,
+                similarity_score=1.0,
+                link_type="auto",
+                status="verified",
+                created_at=datetime(2026, 10, 12, 11, 0, 0, tzinfo=IST)
+            ))
+        cv_brochure_row = db.query(ContentVersion).filter(ContentVersion.content_id == ci_brochure.id).order_by(ContentVersion.version_no.desc()).first()
+        if cv_brochure_row:
+            claim_br_2, _ = _ensure_row(db, ExtractedClaim, "id", ExtractedClaim(
+                id="claim_brochure_2",
+                content_version_id=cv_brochure_row.version_id,
+                raw_span_text="20% off",
+                normalised_value="20%",
+                value_type="percentage",
+                is_approximate=False,
+                subject="Festive Launch offer",
+                attribute="discount",
+                span_start=max(cv_brochure_row.raw_text.find("20% off"), 0),
+                span_end=max(cv_brochure_row.raw_text.find("20% off"), 0) + len("20% off"),
+                extraction_confidence=0.97,
+                masked_token="[PCT_1]",
+                created_at=datetime(2026, 9, 8, 9, 0, 0, tzinfo=IST)
+            ))
+            _ensure_row(db, ClaimFactLink, "id", ClaimFactLink(
+                id="link_brochure_2_offer",
+                claim_id=claim_br_2.id,
+                fact_version_id=f003_v1.version_id,
+                similarity_score=1.0,
+                link_type="auto",
+                status="verified",
+                created_at=datetime(2026, 9, 8, 9, 0, 0, tzinfo=IST)
+            ))
+
+        # Backfill semantic conflict copy onto pre-Improvement-2 seeded text if still untouched
+        cv_li_row = db.query(ContentVersion).filter(ContentVersion.version_id == "cv_linkedin_v1").first()
+        if cv_li_row and cv_li_row.raw_text == "Experience sound redefined. The all-new X1 Pro is officially available starting at ₹5,499 across all retail outlets. Guaranteed 100% satisfaction. Grab yours today!":
+            cv_li_row.raw_text = "Experience sound redefined. The all-new X1 Pro is officially available starting at ₹5,499 across all retail outlets. Complimentary shipping on all orders. Always available year-round. Guaranteed 100% satisfaction. Grab yours today!"
+            cv_li_row.version_hash = hash_text(cv_li_row.raw_text)
+        cv_em_row = db.query(ContentVersion).filter(ContentVersion.version_id == "cv_email_v1").first()
+        if cv_em_row and cv_em_row.raw_text == "Festive Season Exclusive: Get the flagship X1 Pro for only ₹4,999 with our limited-time 20% off discount. Upgrade your audio now!":
+            cv_em_row.raw_text = "Festive Season Exclusive: Limited-time offer — get the flagship X1 Pro for only ₹4,999 with 20% off discount. Standard shipping charges apply at checkout. Upgrade your audio now!"
+            cv_em_row.version_hash = hash_text(cv_em_row.raw_text)
 
         # PIECE 5: Old Webinar Post (Published and Archived before 1 Dec 2026)
         ci_webinar, created_p5 = _ensure_row(db, ContentItem, "id", ContentItem(
@@ -477,27 +563,49 @@ def seed_database(db: Session = None, target_engine = None, reset: bool = False)
             )
             db.add_all([cv_webinar, claim_webinar, link_webinar])
 
-        # 8. Seed at least 2 Example Precedents (Living Guidelines Lite) — insert only if missing
-        _ensure_row(db, Precedent, "id", Precedent(
+        # 8. Seed 2 similar Example Precedents (so 1 additional similar override triggers a Proposed Rule)
+        p1, _ = _ensure_row(db, Precedent, "id", Precedent(
             id="prec_festive_override_01",
-            rule_id=rule_pricing.id,
+            rule_id=rule_campaign.id,
             finding_id=None,
             reviewer_id=reviewer.id,
-            reason="Reviewed with executive marketing team: 30-day introductory price lock exception approved for initial launch window.",
-            finding_summary="Product price claim '₹4,999' on LinkedIn Launch Post",
+            reason="Satisfaction guarantee phrasing approved under standard consumer return policy window with marketing sign-off.",
+            finding_summary="Unverified satisfaction guarantee claim '100% satisfaction' on Q3 Promo Email",
+            finding_type="guarantee",
             resolution_action="override",
             timestamp=datetime(2026, 10, 15, 11, 0, 0, tzinfo=IST)
         ))
-        _ensure_row(db, Precedent, "id", Precedent(
+        p2, _ = _ensure_row(db, Precedent, "id", Precedent(
             id="prec_festive_coherence_02",
             rule_id=rule_campaign.id,
             finding_id=None,
             reviewer_id=reviewer.id,
-            reason="Promotional discount '20% off' cross-verified with Festive Launch campaign brief and authorized by CMO.",
-            finding_summary="Campaign offer claim '20% off' on Festive Email Campaign",
-            resolution_action="accepted",
+            reason="Satisfaction guarantee phrasing approved under standard consumer return policy window per CMO brief.",
+            finding_summary="Unverified guarantee claim 'Guaranteed satisfaction' on Autumn Product Flyer",
+            finding_type="guarantee",
+            resolution_action="dismissed",
             timestamp=datetime(2026, 10, 20, 15, 0, 0, tzinfo=IST)
         ))
+        # Safely migrate pre-Round3 seeded demo placeholder texts if untouched & no rules exist yet
+        if (
+            db.query(ProposedRule).count() == 0
+            and db.query(Guideline).count() == 0
+            and p1.reason.startswith("Reviewed with executive marketing team: 30-day introductory")
+            and p2.reason.startswith("Promotional discount '20% off' cross-verified")
+        ):
+            p1.rule_id = rule_campaign.id
+            p1.reason = "Satisfaction guarantee phrasing approved under standard consumer return policy window with marketing sign-off."
+            p1.finding_summary = "Unverified satisfaction guarantee claim '100% satisfaction' on Q3 Promo Email"
+            p1.finding_type = "guarantee"
+            p2.reason = "Satisfaction guarantee phrasing approved under standard consumer return policy window per CMO brief."
+            p2.finding_summary = "Unverified guarantee claim 'Guaranteed satisfaction' on Autumn Product Flyer"
+            p2.finding_type = "guarantee"
+            p2.resolution_action = "dismissed"
+        else:
+            if not p1.finding_type:
+                p1.finding_type = "guarantee"
+            if not p2.finding_type:
+                p2.finding_type = "guarantee"
 
         # 9. Initial Audit Log (strictly insert-if-missing, never update/delete)
         _ensure_row(db, AuditLog, "id", AuditLog(

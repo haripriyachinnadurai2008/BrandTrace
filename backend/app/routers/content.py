@@ -9,7 +9,8 @@ from typing import List, Optional
 from app.database import get_db
 from app.models.auth import User, UserRole
 from app.models.content import ContentItem, ContentVersion
-from app.models.claims import Finding
+from app.models.claims import Finding, ExtractedClaim, ClaimFactLink
+from app.models.facts import BrandFact, FactVersion
 from app.models.governance import Review, Notification
 from app.models.audit import AuditLog
 from app.auth.guards import get_current_user, require_roles
@@ -145,17 +146,71 @@ def get_content_detail(
         .first()
     )
 
-    findings = []
+    findings_out = []
     claims = []
     if latest_cv:
-        findings = db.query(Finding).filter(Finding.content_version_id == latest_cv.version_id).all()
+        raw_findings = db.query(Finding).filter(Finding.content_version_id == latest_cv.version_id).all()
         claims = latest_cv.claims
+        claims_by_id = {c.id: c for c in claims}
+        for f in raw_findings:
+            c = claims_by_id.get(f.claim_id)
+            fv = None
+            bf = None
+            if c:
+                link = (
+                    db.query(ClaimFactLink)
+                    .filter(ClaimFactLink.claim_id == c.id)
+                    .order_by(ClaimFactLink.created_at.desc())
+                    .first()
+                )
+                if link:
+                    fv = db.query(FactVersion).filter(FactVersion.version_id == link.fact_version_id).first()
+                    if fv:
+                        bf = db.query(BrandFact).filter(BrandFact.id == fv.fact_id).first()
+                        # If finding cites a newer source/page (e.g. post-cascade), resolve that version
+                        if f.source_reference and " p." in f.source_reference:
+                            cited_doc = f.source_reference.split(" p.")[0].strip()
+                            matching_fv = (
+                                db.query(FactVersion)
+                                .filter(FactVersion.fact_id == fv.fact_id, FactVersion.source_id == cited_doc)
+                                .order_by(FactVersion.version_no.desc())
+                                .first()
+                            )
+                            if matching_fv:
+                                fv = matching_fv
+
+            findings_out.append({
+                "id": f.id,
+                "content_version_id": f.content_version_id,
+                "claim_id": f.claim_id,
+                "risk_tier": f.risk_tier,
+                "reason": f.reason,
+                "source_reference": f.source_reference,
+                "extraction_confidence": f.extraction_confidence,
+                "status": f.status,
+                "fix_options": f.fix_options,
+                "created_at": f.created_at,
+                "raw_span_text": c.raw_span_text if c else "",
+                "normalised_value": c.normalised_value if c else "",
+                "claim_type": c.value_type if c else "text",
+                "claim_subject": c.subject if c else None,
+                "verified_value": fv.value if fv else None,
+                "fact_id": bf.id if bf else (fv.fact_id if fv else None),
+                "fact_name": bf.name if bf else None,
+                "evidence_document_id": c.evidence_document_id if c else None,
+                "evidence_page": c.evidence_page if c else None,
+                "evidence_rects": c.evidence_rects if c else None,
+                "evidence_page_width": c.evidence_page_width if c else None,
+                "evidence_page_height": c.evidence_page_height if c else None,
+                "evidence_located": c.evidence_located if c else None,
+                "evidence_reason": c.evidence_reason if c else None,
+            })
 
     return {
         "content_item": ci,
         "latest_version": latest_cv,
         "claims": claims,
-        "findings": findings
+        "findings": findings_out
     }
 
 @router.post("/{content_id}/publish-status")

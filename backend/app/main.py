@@ -18,6 +18,7 @@ from app.database import (
 from app.routers import auth, facts, content, audit, campaigns, precedents, sources
 from app.routers import findings as findings_router
 from app.routers import notifications as notifications_router
+from app.routers import evidence as evidence_router
 
 
 def ensure_demo_dataset_seeded(db, active_engine) -> bool:
@@ -93,6 +94,8 @@ async def lifespan(app: FastAPI):
         active_engine = ensure_db_connected()
 
         Base.metadata.create_all(bind=active_engine)
+        from app.db.migrations import run_schema_migrations
+        run_schema_migrations(active_engine)
         with active_engine.begin() as conn:
             apply_audit_triggers(conn)
 
@@ -129,6 +132,15 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=[
+        "X-Evidence-Located",
+        "X-Evidence-Page",
+        "X-Evidence-Page-Count",
+        "X-Evidence-Highlights",
+        "X-Evidence-Page-Width",
+        "X-Evidence-Page-Height",
+        "X-Evidence-Reason",
+    ],
 )
 
 # ── Routers ───────────────────────────────────────────────────────────────────
@@ -141,6 +153,7 @@ app.include_router(audit.router)
 app.include_router(campaigns.router)
 app.include_router(precedents.router)
 app.include_router(sources.router)
+app.include_router(evidence_router.router)
 
 
 # ── Health ───────────────────────────────────────────────────────────────────

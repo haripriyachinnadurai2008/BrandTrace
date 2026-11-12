@@ -23,6 +23,13 @@ class ExtractedClaim(Base):
     span_end = Column(Integer, nullable=False, default=0)
     extraction_confidence = Column(Float, nullable=False, default=1.0)
     masked_token = Column(String, nullable=True)  # e.g., '[PRICE_1]'
+    evidence_document_id = Column(String, nullable=True)
+    evidence_page = Column(Integer, nullable=True)
+    evidence_rects = Column(JSON, nullable=True)  # List of [x0, y0, x1, y1]
+    evidence_page_width = Column(Float, nullable=True)
+    evidence_page_height = Column(Float, nullable=True)
+    evidence_located = Column(Boolean, nullable=True)
+    evidence_reason = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), default=now_ist, nullable=False)
 
     content_version = relationship("ContentVersion", back_populates="claims")

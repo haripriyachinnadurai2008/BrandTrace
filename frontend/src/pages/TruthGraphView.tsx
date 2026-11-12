@@ -14,6 +14,7 @@ import {
   ArrowRightIcon,
   LockIcon,
   AlertCircleIcon,
+  UploadIcon,
 } from '../components/Icons';
 
 export const TruthGraphView: React.FC<{ currentRole: UserRole }> = ({ currentRole }) => {
@@ -36,6 +37,10 @@ export const TruthGraphView: React.FC<{ currentRole: UserRole }> = ({ currentRol
   const [previewLoading, setPreviewLoading] = useState<boolean>(false);
   const [previewData, setPreviewData] = useState<FactImpactResponse | null>(null);
   const [submitting, setSubmitting] = useState<boolean>(false);
+
+  // Evidence PDF upload state
+  const [uploadingPdf, setUploadingPdf] = useState<boolean>(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const isAdmin = currentRole === 'Admin';
 
@@ -91,6 +96,31 @@ export const TruthGraphView: React.FC<{ currentRole: UserRole }> = ({ currentRol
       setSelectedFact(null);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleUploadEvidencePdf = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !isAdmin) return;
+    try {
+      setUploadingPdf(true);
+      setUploadError(null);
+      const uploaded = await api.uploadEvidencePdf(file);
+      setEvidenceSources(prev => [uploaded, ...prev]);
+      setSourceId(uploaded.id);
+      setSourcePage(1);
+      showToast({
+        type: 'success',
+        title: 'Evidence PDF Uploaded',
+        message: `${uploaded.file_name} (${uploaded.page_count} page${uploaded.page_count === 1 ? '' : 's'}) added.`,
+      });
+    } catch (err: any) {
+      const msg = err.message || 'Failed to upload PDF';
+      setUploadError(msg);
+      showToast({ type: 'error', title: 'PDF Upload Rejected', message: msg });
+    } finally {
+      setUploadingPdf(false);
     }
   };
 
@@ -381,9 +411,28 @@ export const TruthGraphView: React.FC<{ currentRole: UserRole }> = ({ currentRol
 
               {/* Supporting Document & Page */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
-                  Supporting Document &amp; Page
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                    Supporting Document &amp; Page
+                  </label>
+                  {isAdmin && (
+                    <label
+                      className={`inline-flex items-center gap-1 text-[11px] font-semibold text-purple-600 dark:text-purple-400 hover:underline ${
+                        uploadingPdf ? 'opacity-60 cursor-wait' : 'cursor-pointer'
+                      }`}
+                    >
+                      <UploadIcon className="w-3.5 h-3.5" />
+                      <span>{uploadingPdf ? 'Uploading...' : 'Upload PDF (max 10 MB)'}</span>
+                      <input
+                        type="file"
+                        accept="application/pdf,.pdf"
+                        disabled={uploadingPdf}
+                        onChange={handleUploadEvidencePdf}
+                        className="hidden"
+                      />
+                    </label>
+                  )}
+                </div>
                 <div className="grid grid-cols-3 gap-2">
                   <select
                     disabled={!isAdmin || facts.length === 0}
@@ -393,7 +442,7 @@ export const TruthGraphView: React.FC<{ currentRole: UserRole }> = ({ currentRol
                   >
                     {evidenceSources.length > 0 ? (
                       evidenceSources.map(s => (
-                        <option key={s.id} value={s.id}>{s.name || s.id}</option>
+                        <option key={s.id} value={s.id}>{s.title || s.file_name || s.id}</option>
                       ))
                     ) : (
                       <option value="src_price_list_dec">pricing_memo_q4.pdf</option>
@@ -409,6 +458,11 @@ export const TruthGraphView: React.FC<{ currentRole: UserRole }> = ({ currentRol
                     className="text-xs border border-slate-300 dark:border-slate-700 rounded-xl px-2.5 py-2 font-mono bg-white/80 dark:bg-slate-950/80 text-slate-900 dark:text-white disabled:opacity-50 disabled:bg-slate-100 dark:disabled:bg-slate-900 disabled:cursor-not-allowed"
                   />
                 </div>
+                {uploadError && (
+                  <p className="mt-1.5 text-[11px] text-rose-600 dark:text-rose-400">
+                    {uploadError}
+                  </p>
+                )}
               </div>
 
               {/* Change Reason */}

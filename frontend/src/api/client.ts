@@ -393,7 +393,7 @@ class ApiClient {
 
     const url = `${API_BASE_URL}${endpoint}`;
     const headers = new Headers(options.headers || {});
-    if (!headers.has('Content-Type')) {
+    if (!headers.has('Content-Type') && !(options.body instanceof FormData)) {
       headers.set('Content-Type', 'application/json');
     }
 
@@ -520,6 +520,132 @@ class ApiClient {
 
   getEvidenceSources() {
     return this.request<any[]>('/sources');
+  }
+
+  locateEvidence(documentId: string, claimId?: string, findingId?: string) {
+    const params = new URLSearchParams();
+    if (claimId) params.set('claim_id', claimId);
+    if (findingId) params.set('finding_id', findingId);
+    const qs = params.toString();
+    return this.request<any>(`/evidence/${encodeURIComponent(documentId)}/locate${qs ? `?${qs}` : ''}`);
+  }
+
+  async fetchEvidencePageImage(
+    documentId: string,
+    pageNo: number,
+    highlightClaimId?: string
+  ): Promise<{
+    objectUrl: string;
+    located: boolean;
+    page: number;
+    pageCount: number;
+    highlights: number;
+    reason: string;
+  }> {
+    if (isMissingApiUrl) {
+      throw new ApiError(
+        'API Configuration Error: VITE_API_BASE_URL is not configured for production.',
+        { isNetworkError: true }
+      );
+    }
+
+    const qs = highlightClaimId ? `?highlight=${encodeURIComponent(highlightClaimId)}` : '';
+    const url = `${API_BASE_URL}/evidence/${encodeURIComponent(documentId)}/page/${pageNo}${qs}`;
+    const headers = new Headers();
+    if (this.token) {
+      headers.set('Authorization', `Bearer ${this.token}`);
+    } else {
+      headers.set('X-User-Role', this.currentRole);
+      headers.set('X-User-Id', this.currentUserId);
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 45000);
+    let markedSlow = false;
+    const slowTimer = setTimeout(() => {
+      markedSlow = true;
+      this.slowRequestsCount += 1;
+      if (this.slowRequestsCount === 1) this.emitServerWaking(true);
+    }, 3500);
+
+    let response: Response;
+    try {
+      response = await fetch(url, { headers, signal: controller.signal });
+    } catch (networkErr: any) {
+      if (networkErr.name === 'AbortError') {
+        throw new ApiError('Request timed out while loading evidence PDF page. Please retry.', {
+          isNetworkError: true,
+          isTimeout: true,
+        });
+      }
+      throw new ApiError(
+        `Cannot reach backend server at ${API_BASE_URL}. Please retry in a moment.`,
+        { isNetworkError: true }
+      );
+    } finally {
+      clearTimeout(timeoutId);
+      clearTimeout(slowTimer);
+      if (markedSlow) {
+        this.slowRequestsCount = Math.max(0, this.slowRequestsCount - 1);
+        if (this.slowRequestsCount === 0) this.emitServerWaking(false);
+      }
+    }
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        this.notifyAuthError();
+        throw new ApiError('Session expired. Please sign in again.', {
+          status: 401,
+          isUnauthorized: true,
+        });
+      }
+      if (response.status === 403) {
+        let detail = 'Evidence PDF viewer is restricted to internal roles.';
+        try {
+          const data = await response.json();
+          detail = data.detail || detail;
+        } catch {}
+        throw new ApiError(`Not available for your role (${detail})`, {
+          status: 403,
+          isForbidden: true,
+        });
+      }
+      let errDetail = `Failed to load PDF page (${response.status})`;
+      try {
+        const data = await response.json();
+        errDetail = data.detail?.message || data.detail || errDetail;
+      } catch {}
+      throw new ApiError(errDetail, { status: response.status });
+    }
+
+    const blob = await response.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const locatedHdr = response.headers.get('X-Evidence-Located');
+    const pageHdr = response.headers.get('X-Evidence-Page');
+    const countHdr = response.headers.get('X-Evidence-Page-Count');
+    const highlightsHdr = response.headers.get('X-Evidence-Highlights');
+    const reasonHdr = response.headers.get('X-Evidence-Reason') || '';
+
+    return {
+      objectUrl,
+      located: locatedHdr === 'true',
+      page: pageHdr ? parseInt(pageHdr, 10) || pageNo : pageNo,
+      pageCount: countHdr ? parseInt(countHdr, 10) || pageNo : pageNo,
+      highlights: highlightsHdr ? parseInt(highlightsHdr, 10) || 0 : 0,
+      reason: reasonHdr,
+    };
+  }
+
+  uploadEvidencePdf(file: File, title?: string) {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (title && title.trim()) {
+      formData.append('title', title.trim());
+    }
+    return this.request<any>('/evidence/upload', {
+      method: 'POST',
+      body: formData,
+    });
   }
 
   getFactImpact(factId: string, newValue: string, validFrom?: string) {

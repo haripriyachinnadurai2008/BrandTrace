@@ -48,6 +48,8 @@ def seed_database(db: Session = None, target_engine = None, reset: bool = False)
         Base.metadata.drop_all(bind=eng)
 
     Base.metadata.create_all(bind=eng)
+    from app.db.migrations import run_schema_migrations
+    run_schema_migrations(eng)
     with eng.begin() as conn:
         apply_audit_triggers(conn)
 
@@ -510,6 +512,38 @@ def seed_database(db: Session = None, target_engine = None, reset: bool = False)
             reason="Initial seed of Aura Audio brand governance base",
             created_at=datetime(2026, 8, 28, 12, 0, 0, tzinfo=IST)
         ))
+
+        # 10. Backfill PDF evidence coordinates idempotently for seeded price claims if missing
+        from app.services.pdf_evidence import build_search_candidates, locate_evidence_in_pdf, resolve_pdf_path
+        sep_path = resolve_pdf_path(source, document_id=source.id)
+        if sep_path is not None:
+            sep_terms = build_search_candidates(
+                normalised_value=f001_v1.normalised_value,
+                fact_value=f001_v1.value,
+                unit=f001_v1.unit,
+                value_type="price",
+            )
+            sep_loc = locate_evidence_in_pdf(sep_path, search_terms=sep_terms, cited_page=2)
+            seeded_price_claims = (
+                db.query(ExtractedClaim)
+                .filter(ExtractedClaim.id.in_([
+                    "claim_linkedin_1",
+                    "claim_email_1",
+                    "claim_insta_1",
+                    "claim_brochure_1",
+                    "claim_webinar_1",
+                ]))
+                .all()
+            )
+            for sc in seeded_price_claims:
+                if sc.evidence_located is None:
+                    sc.evidence_document_id = source.id
+                    sc.evidence_page = sep_loc.page
+                    sc.evidence_rects = sep_loc.rects
+                    sc.evidence_page_width = sep_loc.page_width
+                    sc.evidence_page_height = sep_loc.page_height
+                    sc.evidence_located = sep_loc.located
+                    sc.evidence_reason = sep_loc.reason
 
         db.commit()
         return {

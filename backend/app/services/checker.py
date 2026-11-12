@@ -29,13 +29,18 @@ from sqlalchemy.orm import Session
 from app.config import IST
 from app.models.content import ContentItem, ContentVersion
 from app.models.claims import ExtractedClaim, ClaimFactLink, Finding
-from app.models.facts import FactVersion
+from app.models.facts import FactVersion, EvidenceSource, BrandFact
 from app.models.audit import AuditLog
 from app.services.tokeniser import tokenise
 from app.services.llm_client import call_llm_with_meta
-from app.services.matcher import match_claim
+from app.services.matcher import match_claim, MatchResult
 from app.services.verifier import verify
 from app.services.normalizer import DeterministicNormalizer, NormalizedEntity
+from app.services.pdf_evidence import (
+    build_search_candidates,
+    locate_evidence_in_pdf,
+    resolve_pdf_path,
+)
 
 
 def _sha256(text: str) -> str:
@@ -270,6 +275,44 @@ def run_check(
         cur_source_id = fv.source_id if fv and fv.source_id else source_id
         cur_source_page = fv.source_page if fv and fv.source_page else source_page
 
+        # Locate exact evidence bounding boxes via PyMuPDF (choosing cited page first)
+        src_obj = (
+            db.query(EvidenceSource)
+            .filter(EvidenceSource.id == cur_source_id)
+            .first()
+            if cur_source_id
+            else None
+        )
+        pdf_path = resolve_pdf_path(src_obj, document_id=cur_source_id)
+        if fv is not None:
+            search_terms = build_search_candidates(
+                normalised_value=fv.normalised_value,
+                fact_value=fv.value,
+                unit=fv.unit,
+                value_type=entity.value_type,
+            )
+        else:
+            search_terms = build_search_candidates(
+                normalised_value=entity.normalised_str,
+                raw_span_text=raw_span,
+                value_type=entity.value_type,
+            )
+
+        ev_loc = locate_evidence_in_pdf(
+            pdf_path=pdf_path,
+            search_terms=search_terms,
+            cited_page=cur_source_page,
+        )
+        claim.evidence_document_id = cur_source_id
+        claim.evidence_page = ev_loc.page
+        claim.evidence_rects = ev_loc.rects
+        claim.evidence_page_width = ev_loc.page_width
+        claim.evidence_page_height = ev_loc.page_height
+        claim.evidence_located = ev_loc.located
+        claim.evidence_reason = ev_loc.reason
+        if ev_loc.located and ev_loc.page:
+            cur_source_page = ev_loc.page
+
         # Persist ClaimFactLink
         link_status = "unverified"
         if match.fact_id:
@@ -323,6 +366,12 @@ def run_check(
         # Compute span in original text for display
         excerpt = raw_text[max(0, span_start - 40):span_end + 40].strip()
 
+        fact_obj = (
+            db.query(BrandFact).filter(BrandFact.id == match.fact_id).first()
+            if match.fact_id
+            else None
+        )
+
         findings_out.append({
             "finding_id": finding.id,
             "claim_id": claim.id,
@@ -335,13 +384,23 @@ def run_check(
             "span_start": span_start,
             "span_end": span_end,
             "raw_span_text": raw_span,
+            "normalised_value": entity.normalised_str,
+            "verified_value": fv.value if fv else None,
             "fact_id": match.fact_id,
+            "fact_name": fact_obj.name if fact_obj else None,
             "fact_version_id": fv.version_id if fv else None,
             "match_method": match.method,
             "match_score": match.score,
             "is_approximate": entity.is_approximate,
             "fix_options": result.fix_options,
             "claim_type": claim_type,
+            "evidence_document_id": claim.evidence_document_id,
+            "evidence_page": claim.evidence_page,
+            "evidence_rects": claim.evidence_rects,
+            "evidence_page_width": claim.evidence_page_width,
+            "evidence_page_height": claim.evidence_page_height,
+            "evidence_located": claim.evidence_located,
+            "evidence_reason": claim.evidence_reason,
         })
 
     # Process LLM-returned claims

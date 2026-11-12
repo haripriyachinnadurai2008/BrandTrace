@@ -16,7 +16,8 @@ from typing import Optional
 
 from app.database import get_db
 from app.models.auth import User, UserRole
-from app.models.claims import Finding
+from app.models.claims import Finding, ExtractedClaim, ClaimFactLink
+from app.models.facts import BrandFact, FactVersion
 from app.models.governance import Precedent, Rule
 from app.models.audit import AuditLog
 from app.auth.guards import get_current_user, require_roles
@@ -50,6 +51,21 @@ def get_finding(
         if not ci or ci.campaign_id != current_user.assigned_campaign_id:
             raise HTTPException(status_code=403, detail="Agency users may only access findings from their assigned campaign")
 
+    claim = db.query(ExtractedClaim).filter(ExtractedClaim.id == finding.claim_id).first()
+    fv = None
+    bf = None
+    if claim:
+        link = (
+            db.query(ClaimFactLink)
+            .filter(ClaimFactLink.claim_id == claim.id)
+            .order_by(ClaimFactLink.created_at.desc())
+            .first()
+        )
+        if link:
+            fv = db.query(FactVersion).filter(FactVersion.version_id == link.fact_version_id).first()
+            if fv:
+                bf = db.query(BrandFact).filter(BrandFact.id == fv.fact_id).first()
+
     return {
         "id": finding.id,
         "content_version_id": finding.content_version_id,
@@ -61,6 +77,18 @@ def get_finding(
         "status": finding.status,
         "fix_options": finding.fix_options,
         "created_at": finding.created_at,
+        "raw_span_text": claim.raw_span_text if claim else "",
+        "normalised_value": claim.normalised_value if claim else "",
+        "verified_value": fv.value if fv else None,
+        "fact_id": bf.id if bf else (fv.fact_id if fv else None),
+        "fact_name": bf.name if bf else None,
+        "evidence_document_id": claim.evidence_document_id if claim else None,
+        "evidence_page": claim.evidence_page if claim else None,
+        "evidence_rects": claim.evidence_rects if claim else None,
+        "evidence_page_width": claim.evidence_page_width if claim else None,
+        "evidence_page_height": claim.evidence_page_height if claim else None,
+        "evidence_located": claim.evidence_located if claim else None,
+        "evidence_reason": claim.evidence_reason if claim else None,
     }
 
 

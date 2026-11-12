@@ -3,6 +3,7 @@ import { api, isPermissionError } from '../api/client';
 import { ContentItem, Finding, ContentCheckResult, UserRole } from '../types';
 import { useRouter } from '../router/Router';
 import { TierBadge, StatusBadge, ConfidenceBar } from '../components/Badges';
+import { EvidenceViewerPanel } from '../components/EvidenceViewerPanel';
 import { GlassCard } from '../components/common/GlassCard';
 import { Button } from '../components/common/Button';
 import { CardSkeleton } from '../components/common/Skeleton';
@@ -17,7 +18,34 @@ import {
   SparklesIcon,
   FileTextIcon,
   CheckIcon,
+  EyeIcon,
 } from '../components/Icons';
+
+const parseSourceReference = (
+  sourceRef?: string,
+  fallbackDocId?: string | null,
+  fallbackPage?: number | null
+): { documentId: string; page: number } | null => {
+  if (sourceRef && !sourceRef.startsWith('campaign:')) {
+    const match = sourceRef.trim().match(/^(.+?)\s+p\.(\d+)$/i);
+    if (match) {
+      return {
+        documentId: match[1].trim(),
+        page: Math.max(1, parseInt(match[2], 10) || 1),
+      };
+    }
+    if (fallbackDocId) {
+      return { documentId: fallbackDocId, page: Math.max(1, fallbackPage || 1) };
+    }
+    if (/^[a-zA-Z0-9_-]+$/.test(sourceRef.trim())) {
+      return { documentId: sourceRef.trim(), page: Math.max(1, fallbackPage || 1) };
+    }
+  }
+  if (fallbackDocId) {
+    return { documentId: fallbackDocId, page: Math.max(1, fallbackPage || 1) };
+  }
+  return null;
+};
 
 type CheckMeta = {
   ai_unavailable?: boolean;
@@ -46,6 +74,13 @@ export const FindingsView: React.FC<{ currentRole: UserRole }> = ({ currentRole 
   const [dismissFindingId, setDismissFindingId] = useState<string | null>(null);
   const [dismissReason, setDismissReason] = useState<string>('');
   const [dismissLoading, setDismissLoading] = useState<boolean>(false);
+
+  // Side-by-side PDF evidence viewer state
+  const [activeEvidence, setActiveEvidence] = useState<{
+    finding: Finding;
+    documentId: string;
+    page: number;
+  } | null>(null);
 
   // Selected fix options per finding
   const [selectedFixes, setSelectedFixes] = useState<Record<string, 'minimal' | 'professional' | 'marketing'>>({});
@@ -115,12 +150,24 @@ export const FindingsView: React.FC<{ currentRole: UserRole }> = ({ currentRole 
           reason: f.reason,
           source_reference: f.source_reference,
           extraction_confidence: f.extraction_confidence,
-          excerpt: f.reason,
+          excerpt: f.raw_span_text ? `Claim: "${f.raw_span_text}"` : f.reason,
           span_start: 0,
           span_end: 0,
-          raw_span_text: '',
+          raw_span_text: f.raw_span_text || '',
+          normalised_value: f.normalised_value || '',
+          verified_value: f.verified_value ?? null,
+          fact_id: f.fact_id,
+          fact_name: f.fact_name ?? null,
+          claim_subject: f.claim_subject ?? null,
+          claim_type: f.claim_type || 'text',
           fix_options: f.fix_options,
-          claim_type: 'text'
+          evidence_document_id: f.evidence_document_id ?? null,
+          evidence_page: f.evidence_page ?? null,
+          evidence_rects: f.evidence_rects ?? null,
+          evidence_page_width: f.evidence_page_width ?? null,
+          evidence_page_height: f.evidence_page_height ?? null,
+          evidence_located: f.evidence_located ?? null,
+          evidence_reason: f.evidence_reason ?? null,
         }));
         setCheckResult({
           content_id: id,
@@ -469,12 +516,47 @@ export const FindingsView: React.FC<{ currentRole: UserRole }> = ({ currentRole 
                       {/* Reason & Evidence Excerpt */}
                       <div className="mt-3 text-xs sm:text-sm text-slate-700 dark:text-slate-300">
                         <p className="font-medium">{f.reason}</p>
-                        {f.source_reference && (
-                          <div className="mt-2 text-xs flex items-center text-slate-500 dark:text-slate-400 bg-white/60 dark:bg-slate-900/60 px-2.5 py-1 rounded-lg border border-slate-200/80 dark:border-slate-800">
-                            <FileTextIcon className="w-3.5 h-3.5 mr-1 text-slate-400" />
-                            <span>Source Evidence: <strong className="text-slate-700 dark:text-slate-300">{f.source_reference}</strong></span>
-                          </div>
-                        )}
+                        {f.source_reference && (() => {
+                          const parsedRef = parseSourceReference(
+                            f.source_reference,
+                            f.evidence_document_id,
+                            f.evidence_page
+                          );
+                          return parsedRef ? (
+                            <div className="mt-2">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setActiveEvidence({
+                                    finding: f,
+                                    documentId: parsedRef.documentId,
+                                    page: parsedRef.page,
+                                  })
+                                }
+                                className="w-full text-left text-xs flex items-center justify-between gap-2 text-purple-700 dark:text-purple-300 bg-purple-500/10 hover:bg-purple-500/20 px-3 py-1.5 rounded-lg border border-purple-300/60 dark:border-purple-800/70 transition cursor-pointer group focus:outline-none focus:ring-2 focus:ring-purple-500"
+                              >
+                                <span className="flex items-center gap-1.5 min-w-0">
+                                  <FileTextIcon className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
+                                  <span className="truncate">
+                                    Source Evidence:{' '}
+                                    <strong className="underline decoration-purple-400/70 group-hover:decoration-purple-500">
+                                      {f.source_reference}
+                                    </strong>
+                                  </span>
+                                </span>
+                                <span className="inline-flex items-center gap-1 text-[11px] font-semibold shrink-0 text-purple-600 dark:text-purple-300">
+                                  <EyeIcon className="w-3.5 h-3.5" />
+                                  <span>Inspect PDF</span>
+                                </span>
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="mt-2 text-xs flex items-center text-slate-500 dark:text-slate-400 bg-white/60 dark:bg-slate-900/60 px-2.5 py-1 rounded-lg border border-slate-200/80 dark:border-slate-800">
+                              <FileTextIcon className="w-3.5 h-3.5 mr-1 text-slate-400" />
+                              <span>Source Evidence: <strong className="text-slate-700 dark:text-slate-300">{f.source_reference}</strong></span>
+                            </div>
+                          );
+                        })()}
                       </div>
 
                       {/* Fix Options (Professional, Marketing, Minimal) */}
@@ -577,6 +659,16 @@ export const FindingsView: React.FC<{ currentRole: UserRole }> = ({ currentRole 
             </div>
           </GlassCard>
         </div>
+      )}
+      {/* Side-by-Side PDF Evidence Deep-Link Viewer */}
+      {activeEvidence && (
+        <EvidenceViewerPanel
+          finding={activeEvidence.finding}
+          documentId={activeEvidence.documentId}
+          initialPage={activeEvidence.page}
+          currentRole={currentRole}
+          onClose={() => setActiveEvidence(null)}
+        />
       )}
     </div>
   );

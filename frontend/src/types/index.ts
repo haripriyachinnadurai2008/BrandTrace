@@ -56,13 +56,58 @@ export interface Finding {
   span_start: number;
   span_end: number;
   raw_span_text: string;
+  normalised_value?: string;
+  verified_value?: string | null;
   fact_id?: string;
+  fact_name?: string | null;
   fact_version_id?: string;
   match_method?: string;
   match_score?: number;
   is_approximate: boolean;
   fix_options?: FixOptions;
   claim_type?: string;
+  claim_subject?: string | null;
+  evidence_document_id?: string | null;
+  evidence_page?: number | null;
+  evidence_rects?: number[][] | null;
+  evidence_page_width?: number | null;
+  evidence_page_height?: number | null;
+  evidence_located?: boolean | null;
+  evidence_reason?: string | null;
+}
+
+export interface EvidenceLocateClaimSummary {
+  claim_id: string;
+  finding_id?: string | null;
+  raw_span_text: string;
+  normalised_value: string;
+  value_type?: string;
+  subject?: string | null;
+  attribute?: string | null;
+  verified_value?: string | null;
+  verified_normalised_value?: string | null;
+  fact_id?: string | null;
+  fact_name?: string | null;
+  extraction_confidence: number;
+  risk_tier?: string | null;
+  status?: string | null;
+  finding_reason?: string | null;
+  source_reference?: string | null;
+}
+
+export interface EvidenceLocateResponse {
+  document_id: string;
+  title: string;
+  file_name: string;
+  located: boolean;
+  reason: string;
+  page_count: number;
+  evidence_page?: number | null;
+  evidence_rects: number[][];
+  evidence_page_width?: number | null;
+  evidence_page_height?: number | null;
+  matched_query?: string | null;
+  claim?: EvidenceLocateClaimSummary | null;
 }
 
 export interface ContentVersionSummary {

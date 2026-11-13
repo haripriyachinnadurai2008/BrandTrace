@@ -39,7 +39,7 @@ export const RouterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [navigate]);
 
   // Compute active tab for /app/:tab
-  let tab = 'findings';
+  let tab = 'dashboard';
   if (path.startsWith('/app')) {
     const segments = path.replace(/\/+$/, '').split('/');
     if (segments.length >= 3 && segments[2]) {
@@ -49,7 +49,7 @@ export const RouterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Route protection and redirection:
   // If token is missing, invalid or expired when visiting /app/*, clear and redirect to /login.
-  // If token is valid when visiting / or /login, redirect to /app/findings.
+  // If token is valid when visiting / or /login, redirect to /app/dashboard.
   useEffect(() => {
     const isTokenValid = api.isTokenValid();
 
@@ -60,7 +60,7 @@ export const RouterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
     } else if (path === '/' || path === '/login') {
       if (isTokenValid) {
-        navigate('/app/findings');
+        navigate('/app/dashboard');
       }
     }
   }, [path, navigate]);

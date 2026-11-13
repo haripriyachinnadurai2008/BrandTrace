@@ -172,12 +172,17 @@ def preview_fact_impact(
     items: List[ImpactItemResponse] = []
     processed_cvs = set()
 
+    is_agency = current_user.role == UserRole.AGENCY
+
     for link, claim, cv, ci, owner in linked_claims:
         if cv.version_id in processed_cvs:
             continue
-        if current_user.role == UserRole.AGENCY and ci.campaign_id != current_user.assigned_campaign_id:
+        if is_agency and ci.campaign_id != current_user.assigned_campaign_id:
             continue
         processed_cvs.add(cv.version_id)
+
+        effective_owner_name = "[REDACTED]" if is_agency else owner.name
+        effective_owner_email = "[REDACTED]" if is_agency else owner.email
 
         # Check archived before valid_from
         is_archived_prior = False
@@ -195,8 +200,8 @@ def preview_fact_impact(
                 channel=ci.channel,
                 old_state=cv.state,
                 new_state=cv.state,
-                owner_name=owner.name,
-                owner_email=owner.email,
+                owner_name=effective_owner_name,
+                owner_email=effective_owner_email,
                 action_required="Left alone",
                 is_red_alert=False,
                 is_stale=False,
@@ -215,8 +220,8 @@ def preview_fact_impact(
                 channel=ci.channel,
                 old_state="approved",
                 new_state="re-review required",
-                owner_name=owner.name,
-                owner_email=owner.email,
+                owner_name=effective_owner_name,
+                owner_email=effective_owner_email,
                 action_required="Re-review required",
                 is_red_alert=False,
                 is_stale=False,
@@ -235,8 +240,8 @@ def preview_fact_impact(
                 channel=ci.channel,
                 old_state="draft",
                 new_state="draft (stale)",
-                owner_name=owner.name,
-                owner_email=owner.email,
+                owner_name=effective_owner_name,
+                owner_email=effective_owner_email,
                 action_required="Marked stale",
                 is_red_alert=False,
                 is_stale=True,
@@ -255,8 +260,8 @@ def preview_fact_impact(
                 channel=ci.channel,
                 old_state="live",
                 new_state="live",
-                owner_name=owner.name,
-                owner_email=owner.email,
+                owner_name=effective_owner_name,
+                owner_email=effective_owner_email,
                 action_required="RED ALERT",
                 is_red_alert=True,
                 is_stale=False,

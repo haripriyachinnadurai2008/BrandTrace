@@ -19,6 +19,8 @@ import {
   FileTextIcon,
   CheckIcon,
   EyeIcon,
+  PlusIcon,
+  XIcon,
 } from '../components/Icons';
 
 const parseSourceReference = (
@@ -85,6 +87,39 @@ export const FindingsView: React.FC<{ currentRole: UserRole }> = ({ currentRole 
   // Selected fix options per finding
   const [selectedFixes, setSelectedFixes] = useState<Record<string, 'minimal' | 'professional' | 'marketing'>>({});
   const [, setAppliedFixes] = useState<Record<string, string>>({});
+
+  // New Asset / Paste Copy modal state
+  const [newModalOpen, setNewModalOpen] = useState<boolean>(false);
+  const [newTitle, setNewTitle] = useState<string>('');
+  const [newChannel, setNewChannel] = useState<string>('linkedin');
+  const [newRawText, setNewRawText] = useState<string>('');
+  const [creatingAsset, setCreatingAsset] = useState<boolean>(false);
+
+  const handleCreateAsset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTitle.trim() || !newRawText.trim()) {
+      showToast({ type: 'warning', title: 'Missing Fields', message: 'Please provide both title and body text.' });
+      return;
+    }
+    try {
+      setCreatingAsset(true);
+      const res = await api.createContent(newTitle.trim(), newChannel, newRawText.trim());
+      showToast({ type: 'success', title: 'Asset Created', message: `"${newTitle}" created as draft.` });
+      setNewModalOpen(false);
+      setNewTitle('');
+      setNewRawText('');
+      await loadItems();
+      setSelectedId(res.id);
+      // Immediately run check on the newly created asset
+      await api.checkContent(res.id);
+      await loadDetail(res.id);
+      showToast({ type: 'info', title: 'Verification Complete', message: 'Claims verified against Brand Truth Graph.' });
+    } catch (err: any) {
+      showToast({ type: 'error', title: 'Creation Failed', message: err.message || 'Could not create asset' });
+    } finally {
+      setCreatingAsset(false);
+    }
+  };
 
   useEffect(() => {
     loadItems();
@@ -360,16 +395,29 @@ export const FindingsView: React.FC<{ currentRole: UserRole }> = ({ currentRole 
           </select>
 
           {canVerifyOrEdit ? (
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={handleRunCheck}
-              disabled={checking || !selectedId || items.length === 0}
-              isLoading={checking}
-              leftIcon={<RefreshIcon className="w-4 h-4" />}
-            >
-              {checking ? 'Checking...' : 'Run Verification'}
-            </Button>
+            <>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleRunCheck}
+                disabled={checking || !selectedId || items.length === 0}
+                isLoading={checking}
+                leftIcon={<RefreshIcon className="w-4 h-4" />}
+              >
+                {checking ? 'Checking...' : 'Run Verification'}
+              </Button>
+
+              {(currentRole === 'Creator' || currentRole === 'Admin') && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setNewModalOpen(true)}
+                  leftIcon={<PlusIcon className="w-4 h-4" />}
+                >
+                  New Asset
+                </Button>
+              )}
+            </>
           ) : (
             <span className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
               Agency: Read-Only View
@@ -403,18 +451,25 @@ export const FindingsView: React.FC<{ currentRole: UserRole }> = ({ currentRole 
       )}
 
       {items.length === 0 && !loading && !error && (
-        <div className="p-4 rounded-xl bg-purple-500/10 border border-purple-200 dark:border-purple-800 text-purple-900 dark:text-purple-200 text-xs flex items-center justify-between gap-3 animate-in fade-in">
+        <div className="p-4 rounded-xl bg-purple-500/10 border border-purple-200 dark:border-purple-800 text-purple-900 dark:text-purple-200 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in">
           <div className="flex items-center gap-2">
-            <SparklesIcon className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+            <SparklesIcon className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0" />
             <span>
               {currentRole === 'Agency'
                 ? 'No content items available for your assigned campaign.'
-                : 'No content items available yet. Click Refresh to check again.'}
+                : 'No content items loaded yet. Click Refresh to reload seeded assets or create a new one.'}
             </span>
           </div>
-          <Button variant="secondary" size="sm" onClick={loadItems} leftIcon={<RefreshIcon className="w-3.5 h-3.5" />}>
-            Refresh
-          </Button>
+          <div className="flex items-center gap-2 self-end sm:self-center">
+            <Button variant="secondary" size="sm" onClick={loadItems} leftIcon={<RefreshIcon className="w-3.5 h-3.5" />}>
+              Refresh
+            </Button>
+            {canVerifyOrEdit && (
+              <Button variant="primary" size="sm" onClick={() => setNewModalOpen(true)} leftIcon={<PlusIcon className="w-3.5 h-3.5" />}>
+                Create Asset
+              </Button>
+            )}
+          </div>
         </div>
       )}
 
@@ -535,7 +590,12 @@ export const FindingsView: React.FC<{ currentRole: UserRole }> = ({ currentRole 
 
                       {/* Reason & Evidence Excerpt */}
                       <div className="mt-3 text-xs sm:text-sm text-slate-700 dark:text-slate-300">
-                        <p className="font-medium">{f.reason}</p>
+                        <div className="flex items-start gap-1.5">
+                          <span className="font-bold text-slate-900 dark:text-white uppercase tracking-wider text-[11px] shrink-0 mt-0.5">
+                            Why flagged:
+                          </span>
+                          <p className="font-medium">{f.reason}</p>
+                        </div>
                         {f.source_reference && (() => {
                           const parsedRef = parseSourceReference(
                             f.source_reference,
@@ -693,6 +753,109 @@ export const FindingsView: React.FC<{ currentRole: UserRole }> = ({ currentRole 
                 Confirm Override
               </Button>
             </div>
+          </GlassCard>
+        </div>
+      )}
+
+      {/* New Asset / Paste Copy Modal */}
+      {newModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in">
+          <GlassCard intensity="prominent" className="max-w-xl w-full p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <FileTextIcon className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  Add New Marketing Asset
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setNewModalOpen(false)}
+                className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              >
+                <XIcon className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateAsset} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
+                  Asset Title
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Black Friday Flash Sale Copy"
+                  value={newTitle}
+                  onChange={(e) => setNewTitle(e.target.value)}
+                  className="w-full px-3 py-2 text-xs sm:text-sm border border-slate-300 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
+                  Channel
+                </label>
+                <select
+                  value={newChannel}
+                  onChange={(e) => setNewChannel(e.target.value)}
+                  className="w-full px-3 py-2 text-xs sm:text-sm border border-slate-300 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 font-medium capitalize"
+                >
+                  <option value="linkedin">LinkedIn</option>
+                  <option value="email">Email</option>
+                  <option value="instagram">Instagram</option>
+                  <option value="brochure">Brochure</option>
+                  <option value="webinar">Webinar</option>
+                </select>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                    Content Copy (Text)
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewTitle('Holiday Flash Announcement');
+                      setNewChannel('linkedin');
+                      setNewRawText('Celebrate the season! The flagship X1 Pro is available starting at ₹4,999 with complimentary shipping and 20% off. Limited-time festive release.');
+                    }}
+                    className="text-[11px] text-purple-600 dark:text-purple-400 hover:underline"
+                  >
+                    Paste sample copy
+                  </button>
+                </div>
+                <textarea
+                  required
+                  rows={5}
+                  placeholder="Paste marketing copy with claims (e.g. pricing, discounts, shipping terms, warranties)..."
+                  value={newRawText}
+                  onChange={(e) => setNewRawText(e.target.value)}
+                  className="w-full p-3 text-xs sm:text-sm border border-slate-300 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 font-sans"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setNewModalOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="sm"
+                  isLoading={creatingAsset}
+                  leftIcon={<SparklesIcon className="w-4 h-4" />}
+                >
+                  {creatingAsset ? 'Submitting & Verifying...' : 'Submit & Verify'}
+                </Button>
+              </div>
+            </form>
           </GlassCard>
         </div>
       )}

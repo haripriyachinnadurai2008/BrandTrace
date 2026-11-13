@@ -7,6 +7,7 @@ import { LandingPage } from './pages/LandingPage';
 import { LoginPage } from './pages/LoginPage';
 import { AppSidebar } from './components/AppSidebar';
 import { AppHeader } from './components/AppHeader';
+import { DashboardView } from './pages/DashboardView';
 import { FindingsView } from './pages/FindingsView';
 import { ImpactListView } from './pages/ImpactListView';
 import { TruthGraphView } from './pages/TruthGraphView';
@@ -20,7 +21,7 @@ import { ClockIcon } from './components/Icons';
 const AppContent: React.FC = () => {
   const { path, tab, navigate } = useRouter();
   const [currentRole, setCurrentRole] = useState<UserRole>(() => api.getRole());
-  const [activeTab, setActiveTab] = useState<string>(tab || 'findings');
+  const [activeTab, setActiveTab] = useState<string>(tab || 'dashboard');
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false);
   const [serverWaking, setServerWaking] = useState<boolean>(false);
 
@@ -158,6 +159,7 @@ const AppContent: React.FC = () => {
 
         {/* Dynamic Viewport */}
         <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+          {activeTab === 'dashboard' && <DashboardView currentRole={currentRole} />}
           {activeTab === 'findings' && <FindingsView currentRole={currentRole} />}
           {activeTab === 'impact' && <ImpactListView currentRole={currentRole} />}
           {activeTab === 'facts' && <TruthGraphView currentRole={currentRole} />}

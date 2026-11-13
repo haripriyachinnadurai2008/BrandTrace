@@ -42,12 +42,24 @@ export const LandingPage: React.FC = () => {
     });
   }, []);
 
-  const handleEnterDemo = async () => {
+  const handleEnterDemo = async (targetRole: string = 'admin') => {
     setDemoLoading(true);
     setDemoError(null);
     try {
-      await api.demoLogin('admin');
-      navigate('/app/findings');
+      try {
+        await api.demoLogin(targetRole);
+      } catch {
+        // Fallback to normal login with seeded credentials
+        const creds: Record<string, { email: string; pass: string }> = {
+          admin: { email: 'admin@aura-audio.com', pass: 'BrandTrace2026!' },
+          creator: { email: 'creator@aura-audio.com', pass: 'BrandTrace2026!' },
+          reviewer: { email: 'reviewer@aura-audio.com', pass: 'BrandTrace2026!' },
+          agency: { email: 'agency@partner.com', pass: 'BrandTrace2026!' },
+        };
+        const cred = creds[targetRole.toLowerCase()] || creds.admin;
+        await api.login(cred.email, cred.pass);
+      }
+      navigate('/app/dashboard');
     } catch (err: any) {
       const msg = err.message || '';
       if (msg.includes('Cannot reach backend') || msg.includes('timed out') || msg.includes('Failed to fetch')) {
@@ -116,26 +128,22 @@ export const LandingPage: React.FC = () => {
           {/* Right Actions */}
           <div className="flex items-center space-x-3">
             <ThemeToggle />
-            {demoMode ? (
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={handleEnterDemo}
-                isLoading={demoLoading}
-                rightIcon={<ArrowRightIcon className="w-3.5 h-3.5" />}
-              >
-                Enter demo as Admin
-              </Button>
-            ) : (
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() => navigate('/login')}
-                rightIcon={<ArrowRightIcon className="w-3.5 h-3.5" />}
-              >
-                Sign In to Demo
-              </Button>
-            )}
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => handleEnterDemo('admin')}
+              isLoading={demoLoading}
+              rightIcon={<ArrowRightIcon className="w-3.5 h-3.5" />}
+            >
+              1-Click Demo
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate('/login')}
+            >
+              Sign In
+            </Button>
           </div>
         </div>
       </header>
@@ -177,33 +185,30 @@ export const LandingPage: React.FC = () => {
 
               {/* CTAs */}
               <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 pt-2">
-                {demoMode ? (
-                  <Button
-                    size="lg"
-                    onClick={handleEnterDemo}
-                    isLoading={demoLoading}
-                    rightIcon={<ArrowRightIcon className="w-4 h-4" />}
-                    className="w-full sm:w-auto text-base font-bold shadow-lg shadow-purple-600/25"
-                  >
-                    Enter demo as Admin
-                  </Button>
-                ) : (
-                  <Button
-                    size="lg"
-                    onClick={() => navigate('/login')}
-                    rightIcon={<ArrowRightIcon className="w-4 h-4" />}
-                    className="w-full sm:w-auto text-base font-bold"
-                  >
-                    Sign in to the demo
-                  </Button>
-                )}
+                <Button
+                  size="lg"
+                  onClick={() => handleEnterDemo('admin')}
+                  isLoading={demoLoading}
+                  rightIcon={<ArrowRightIcon className="w-4 h-4" />}
+                  className="w-full sm:w-auto text-base font-bold shadow-lg shadow-purple-600/25"
+                >
+                  Enter Live Demo (Admin 1-Click)
+                </Button>
                 <Button
                   variant="outline"
                   size="lg"
-                  onClick={() => scrollToSection('how-it-works')}
+                  onClick={() => scrollToSection('demo-story')}
                   className="w-full sm:w-auto text-base"
                 >
-                  See how it works
+                  Run Demo Story
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="lg"
+                  onClick={() => navigate('/login')}
+                  className="w-full sm:w-auto text-base"
+                >
+                  Sign In (All Roles)
                 </Button>
               </div>
 
@@ -611,6 +616,199 @@ export const LandingPage: React.FC = () => {
                 </GlassCard>
               );
             })}
+          </div>
+        </div>
+      </section>
+
+      {/* ── SECTION 4.5: GUIDED DEMO STORY FOR JUDGES ── */}
+      <section id="demo-story" className="py-20 bg-gradient-to-b from-purple-500/5 via-slate-500/5 to-transparent border-t border-slate-200/60 dark:border-slate-800/60">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center max-w-3xl mx-auto space-y-3 mb-12">
+            <span className="px-3 py-1 rounded-full text-xs font-bold bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+              Evaluator Guide · Round 3
+            </span>
+            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+              Run the 6-Step BrandTrace Demo Story
+            </h2>
+            <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300">
+              Experience the end-to-end brand governance pipeline in 3 minutes. Each step maps to a verifiable engineering guarantee.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* Step 1 */}
+            <GlassCard className="p-6 flex flex-col justify-between space-y-4 border-purple-300/40 dark:border-purple-800/40">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="w-7 h-7 rounded-full bg-purple-600 text-white font-mono font-bold text-xs flex items-center justify-center">
+                    1
+                  </span>
+                  <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300">
+                    Creator Role
+                  </span>
+                </div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  Deterministic Claim Verification
+                </h3>
+                <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                  Creator uploads collateral. Numbers are masked as tokens (<code>[PRICE_1]</code>) before Groq LLM extraction. Backend verifies against ground truth without hallucination.
+                </p>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => handleEnterDemo('creator')}
+                rightIcon={<ArrowRightIcon className="w-3.5 h-3.5" />}
+                className="w-full text-xs"
+              >
+                Jump to Findings
+              </Button>
+            </GlassCard>
+
+            {/* Step 2 */}
+            <GlassCard className="p-6 flex flex-col justify-between space-y-4 border-purple-300/40 dark:border-purple-800/40">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="w-7 h-7 rounded-full bg-purple-600 text-white font-mono font-bold text-xs flex items-center justify-center">
+                    2
+                  </span>
+                  <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300">
+                    Reviewer Role
+                  </span>
+                </div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  PDF Evidence Deep-Linking
+                </h3>
+                <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                  Click <strong>&quot;Inspect PDF&quot;</strong> on any finding. PyMuPDF searches ground-truth documents and renders the page with matching bounding-box rectangles drawn live.
+                </p>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => handleEnterDemo('reviewer')}
+                rightIcon={<ArrowRightIcon className="w-3.5 h-3.5" />}
+                className="w-full text-xs"
+              >
+                Inspect PDF Evidence
+              </Button>
+            </GlassCard>
+
+            {/* Step 3 */}
+            <GlassCard className="p-6 flex flex-col justify-between space-y-4 border-purple-300/40 dark:border-purple-800/40">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="w-7 h-7 rounded-full bg-purple-600 text-white font-mono font-bold text-xs flex items-center justify-center">
+                    3
+                  </span>
+                  <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-purple-100 dark:bg-purple-950/70 text-purple-700 dark:text-purple-300">
+                    Admin Role
+                  </span>
+                </div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  What-If Blast Radius Preview
+                </h3>
+                <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                  Before changing Fact F001 price from ₹4,999 to ₹5,499, preview downstream effects across all 5 assets: 1 Red Alert, 2 Re-review, 1 Stale, 1 Left Alone.
+                </p>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => handleEnterDemo('admin')}
+                rightIcon={<ArrowRightIcon className="w-3.5 h-3.5" />}
+                className="w-full text-xs"
+              >
+                Preview Blast Radius
+              </Button>
+            </GlassCard>
+
+            {/* Step 4 */}
+            <GlassCard className="p-6 flex flex-col justify-between space-y-4 border-purple-300/40 dark:border-purple-800/40">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="w-7 h-7 rounded-full bg-purple-600 text-white font-mono font-bold text-xs flex items-center justify-center">
+                    4
+                  </span>
+                  <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-purple-100 dark:bg-purple-950/70 text-purple-700 dark:text-purple-300">
+                    Admin Role
+                  </span>
+                </div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  Atomic Commit Cascade
+                </h3>
+                <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                  Single PostgreSQL transaction closes old fact version, commits new version, invalidates approvals, generates notifications, and appends to trigger-enforced audit log.
+                </p>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => handleEnterDemo('admin')}
+                rightIcon={<ArrowRightIcon className="w-3.5 h-3.5" />}
+                className="w-full text-xs"
+              >
+                Inspect Truth Graph
+              </Button>
+            </GlassCard>
+
+            {/* Step 5 */}
+            <GlassCard className="p-6 flex flex-col justify-between space-y-4 border-purple-300/40 dark:border-purple-800/40">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="w-7 h-7 rounded-full bg-purple-600 text-white font-mono font-bold text-xs flex items-center justify-center">
+                    5
+                  </span>
+                  <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300">
+                    Admin &amp; Reviewer
+                  </span>
+                </div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  Precedent-to-Rule Synthesizer
+                </h3>
+                <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                  Reviewer overrides findings with &gt;=10 char justifications. At 3+ similar rationales, the synthesizer drafts a proposed policy rule. Admin approves into versioned guidelines.
+                </p>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => handleEnterDemo('admin')}
+                rightIcon={<ArrowRightIcon className="w-3.5 h-3.5" />}
+                className="w-full text-xs"
+              >
+                Open Synthesizer
+              </Button>
+            </GlassCard>
+
+            {/* Step 6 */}
+            <GlassCard className="p-6 flex flex-col justify-between space-y-4 border-purple-300/40 dark:border-purple-800/40">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="w-7 h-7 rounded-full bg-purple-600 text-white font-mono font-bold text-xs flex items-center justify-center">
+                    6
+                  </span>
+                  <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300">
+                    Admin &amp; Agency
+                  </span>
+                </div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  Semantic Conflicts &amp; Expiry
+                </h3>
+                <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                  Detect cross-channel contradictions without numbers (e.g. &quot;free shipping&quot; vs &quot;shipping applies&quot;). Truth Graph forecasts Fact F003 expiring in 7 days, warning 2 live assets.
+                </p>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => handleEnterDemo('admin')}
+                rightIcon={<ArrowRightIcon className="w-3.5 h-3.5" />}
+                className="w-full text-xs"
+              >
+                Inspect Coherence
+              </Button>
+            </GlassCard>
           </div>
         </div>
       </section>
@@ -1088,22 +1286,22 @@ export const LandingPage: React.FC = () => {
               </ul>
             </GlassCard>
 
-            <GlassCard className="p-6 space-y-3">
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300">
-                <span>Round 3 Target</span>
+            <GlassCard className="p-6 space-y-3 border-emerald-400/50 dark:border-emerald-800">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
+                <span>Delivered in Round 3 (Verified)</span>
               </div>
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">PDF Evidence, Rule Synthesis &amp; Drift</h3>
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">PDF Evidence, Synthesis &amp; Expiry</h3>
               <ul className="text-xs text-slate-600 dark:text-slate-300 space-y-1.5 list-disc list-inside">
                 <li>PyMuPDF deep-linked PDF evidence highlights</li>
-                <li>Precedent-to-rule synthesizer &amp; approval workflow</li>
+                <li>Precedent-to-rule synthesizer &amp; Admin approval workflow</li>
                 <li>Semantic cross-channel conflicts &amp; expiry forecasting</li>
-                <li>Per-role home dashboard &amp; deterministic fallback</li>
+                <li>Governance Dashboard &amp; on-demand asset verification</li>
               </ul>
             </GlassCard>
 
             <GlassCard className="p-6 space-y-3">
               <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                <span>Future Horizon</span>
+                <span>Future Horizon (Post-Hackathon)</span>
               </div>
               <h3 className="text-base font-bold text-slate-900 dark:text-white">Ecosystem Integration</h3>
               <ul className="text-xs text-slate-600 dark:text-slate-300 space-y-1.5 list-disc list-inside">

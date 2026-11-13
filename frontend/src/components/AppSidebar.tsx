@@ -76,6 +76,13 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
     restrictedTip?: string;
   }[] = [
     {
+      id: 'dashboard',
+      label: '0. Dashboard',
+      icon: SparklesIcon,
+      desc: 'Governance KPIs & status',
+      allowedRoles: ['Admin', 'Creator', 'Reviewer', 'Agency'],
+    },
+    {
       id: 'findings',
       label: '1. Content Findings',
       icon: FileTextIcon,

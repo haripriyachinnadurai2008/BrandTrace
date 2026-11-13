@@ -57,19 +57,26 @@ export const ImpactListView: React.FC<{ currentRole: UserRole }> = ({ currentRol
   const handleExportCSV = () => {
     if (!impactData || !impactData.items.length) return;
 
-    const headers = ['Content ID', 'Title', 'Channel', 'Old State', 'New State / Action', 'Priority', 'Owner Name', 'Owner Email', 'Outdated Value', 'New Value'];
-    const rows = impactData.items.map(it => [
-      `"${it.content_id}"`,
-      `"${it.title.replace(/"/g, '""')}"`,
-      `"${it.channel}"`,
-      `"${it.old_state}"`,
-      `"${it.action_required}"`,
-      `"${it.priority}"`,
-      `"${it.owner_name}"`,
-      `"${it.owner_email}"`,
-      `"${it.outdated_value}"`,
-      `"${it.new_value}"`,
-    ]);
+    const isAgency = currentRole === 'Agency';
+    const headers = isAgency
+      ? ['Content ID', 'Title', 'Channel', 'Old State', 'New State / Action', 'Priority', 'Outdated Value', 'New Value']
+      : ['Content ID', 'Title', 'Channel', 'Old State', 'New State / Action', 'Priority', 'Owner Name', 'Owner Email', 'Outdated Value', 'New Value'];
+
+    const rows = impactData.items.map(it => {
+      const baseRow = [
+        `"${it.content_id}"`,
+        `"${it.title.replace(/"/g, '""')}"`,
+        `"${it.channel}"`,
+        `"${it.old_state}"`,
+        `"${it.action_required}"`,
+        `"${it.priority}"`,
+      ];
+      if (!isAgency) {
+        baseRow.push(`"${it.owner_name}"`, `"${it.owner_email}"`);
+      }
+      baseRow.push(`"${it.outdated_value}"`, `"${it.new_value}"`);
+      return baseRow;
+    });
 
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
     const encodedUri = encodeURI(csvContent);
@@ -231,7 +238,7 @@ export const ImpactListView: React.FC<{ currentRole: UserRole }> = ({ currentRol
                   <th className="py-3 px-3">State Before</th>
                   <th className="py-3 px-4">Result / Action Required</th>
                   <th className="py-3 px-3">Priority</th>
-                  <th className="py-3 px-4">Owner</th>
+                  {currentRole !== 'Agency' && <th className="py-3 px-4">Owner</th>}
                   <th className="py-3 px-4">Observed vs New</th>
                 </tr>
               </thead>
@@ -295,10 +302,12 @@ export const ImpactListView: React.FC<{ currentRole: UserRole }> = ({ currentRol
                           {item.priority}
                         </span>
                       </td>
-                      <td className="py-3.5 px-4 text-xs text-slate-600 dark:text-slate-300">
-                        <div className="font-semibold text-slate-800 dark:text-slate-200">{item.owner_name}</div>
-                        <div className="text-slate-400 font-mono text-[11px]">{item.owner_email}</div>
-                      </td>
+                      {currentRole !== 'Agency' && (
+                        <td className="py-3.5 px-4 text-xs text-slate-600 dark:text-slate-300">
+                          <div className="font-semibold text-slate-800 dark:text-slate-200">{item.owner_name}</div>
+                          <div className="text-slate-400 font-mono text-[11px]">{item.owner_email}</div>
+                        </td>
+                      )}
                       <td className="py-3.5 px-4 text-xs font-mono">
                         <span className="text-rose-600 dark:text-rose-400 line-through mr-1.5">{item.outdated_value}</span>
                         <span className="text-emerald-600 dark:text-emerald-400 font-bold">→ {item.new_value}</span>

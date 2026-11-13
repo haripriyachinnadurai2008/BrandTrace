@@ -19,6 +19,7 @@ interface AppHeaderProps {
 }
 
 const tabTitles: Record<string, { title: string; subtitle: string }> = {
+  dashboard: { title: '0. Governance Dashboard', subtitle: 'Live Brand Compliance & Ground-Truth Health' },
   findings: { title: '1. Content Findings & Fixes', subtitle: 'AI Extraction & Verification Gate' },
   impact: { title: '2. Change Impact Blast Radius', subtitle: 'Atomic Downstream Cascade' },
   facts: { title: '3. Brand Truth Graph', subtitle: 'Single-Source-of-Truth Version Timeline' },

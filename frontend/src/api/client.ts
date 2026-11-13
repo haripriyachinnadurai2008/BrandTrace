@@ -486,6 +486,13 @@ class ApiClient {
     return this.request<any[]>('/content');
   }
 
+  createContent(title: string, channel: string, raw_text: string, campaign_id?: string) {
+    return this.request<{ id: string; title: string; version_id: string }>('/content', {
+      method: 'POST',
+      body: JSON.stringify({ title, channel, raw_text, campaign_id }),
+    });
+  }
+
   getContentDetail(contentId: string) {
     return this.request<any>(`/content/${contentId}`);
   }

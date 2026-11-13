@@ -63,12 +63,19 @@ def create_content(
     """Create a new content item with its first version."""
     import hashlib
 
+    title = payload.title.strip()
+    raw_text = payload.raw_text.strip()
+    if not title:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Title cannot be empty")
+    if not raw_text:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Content body text cannot be empty")
+
     ci = ContentItem(
         id=str(uuid.uuid4()),
         org_id=current_user.org_id,
-        campaign_id=payload.campaign_id,
-        title=payload.title,
-        channel=payload.channel,
+        campaign_id=payload.campaign_id or "camp_festive_launch",
+        title=title,
+        channel=payload.channel.strip().lower(),
         current_state="draft",
         owner_id=current_user.id,
         created_at=datetime.now(IST),
@@ -76,12 +83,12 @@ def create_content(
     db.add(ci)
     db.flush()
 
-    version_hash = hashlib.sha256(payload.raw_text.encode()).hexdigest()
+    version_hash = hashlib.sha256(raw_text.encode()).hexdigest()
     cv = ContentVersion(
         version_id=str(uuid.uuid4()),
         content_id=ci.id,
         version_no=1,
-        raw_text=payload.raw_text,
+        raw_text=raw_text,
         version_hash=version_hash,
         state="draft",
         created_at=datetime.now(IST),

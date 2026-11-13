@@ -58,3 +58,4 @@ flowchart LR
 | **Privacy / Zero Data Leakage** | Pre-tokenization masks numbers (`[PRICE_1]`) before external LLM calls. | Zero-knowledge on-premise SLM (DeepSeek/Llama-3-8B) for air-gapped enterprise deployments. |
 | **Tamper-Proof Audit Trail** | DB trigger strictly rejects `UPDATE` and `DELETE` on `audit_logs`. | Cryptographic Merkle tree anchoring to append-only timestamp authority. |
 | **Verification Latency** | Bounded < 3.5s with deterministic regex fallback on LLM delay. | < 500ms edge verifier deployed via Cloudflare Workers / Fastly Compute. |
+

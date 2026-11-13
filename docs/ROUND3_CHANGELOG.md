@@ -53,3 +53,4 @@ In Round 3, BrandTrace delivered all three named improvements promised to the ev
    - When the Groq API key is unconfigured, rate-limited, or times out, BrandTrace automatically falls back to deterministic rule-based verification with an explicit amber badge (*"AI unavailable, using deterministic/cached result"*). The application never crashes or throws 500.
 3. **Render Free-Tier Spin-Down**:
    - On the Render free tier, web services spin down after 15 minutes of inactivity, causing an initial cold-start latency of ~30–50s. The frontend includes automatic wake-up pinging, keep-alive timers, and progressive status feedback during login.
+
